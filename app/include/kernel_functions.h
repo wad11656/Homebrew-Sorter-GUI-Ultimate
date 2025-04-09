@@ -11,7 +11,7 @@ extern "C" {
 // Kernel function prototypes
 
 // audio_driver functions
-int pspAudioSetFrequency(int frequency);
+extern int pspAudioSetFrequency(int frequency);
 
 // display_driver functions
 extern int pspDisplayEnable(void);
