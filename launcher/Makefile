@@ -2,8 +2,6 @@ TARGET = CMFileManager
 
 OBJS   = source/main.o
 
-PSP_LARGE_MEMORY = 1
-
 VERSION_MAJOR :=  4
 VERSION_MINOR :=  1
 VERSION_MICRO :=  0
