@@ -22,5 +22,16 @@ jobs:
     
     - uses: actions/upload-artifact@v4
       with:
-        name: CMFileManager-PSP
+        path: audio_driver/audio_driver.prx
+    
+    - uses: actions/upload-artifact@v4
+      with:
+        path: display_driver/display_driver.prx
+    
+    - uses: actions/upload-artifact@v4
+      with:
+        path: fs_driver/fs_driver.prx
+    
+    - uses: actions/upload-artifact@v4
+      with:
         path: app/EBOOT.PBP

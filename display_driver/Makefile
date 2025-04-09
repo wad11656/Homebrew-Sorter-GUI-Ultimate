@@ -21,4 +21,3 @@ include $(PSPSDK)/lib/build_prx.mak
 all:
 	psp-build-exports -s $(PRX_EXPORTS)
 	mv display_driver.S "../app/drivers/"
-	mv display_driver.prx "../app/data/"

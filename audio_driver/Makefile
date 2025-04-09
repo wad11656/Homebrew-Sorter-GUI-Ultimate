@@ -21,4 +21,3 @@ include $(PSPSDK)/lib/build_prx.mak
 all:
 	psp-build-exports -s $(PRX_EXPORTS)
 	mv audio_driver.S "../app/drivers/"
-	mv audio_driver.prx "../app/data/"
