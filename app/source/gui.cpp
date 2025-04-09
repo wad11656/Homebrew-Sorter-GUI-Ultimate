@@ -29,11 +29,11 @@ namespace GUI {
     }
 
     void DisplayStatusBar(void) {
-        pspTime time;
+        ScePspDateTime time;
         static char time_string[30];
 
         if (R_SUCCEEDED(sceRtcGetCurrentClockLocalTime(&time)))
-            std::snprintf(time_string, 30, "%2i:%02i %s", ((time.hour % 12) == 0)? 12 : time.hour % 12, time.minutes, (time.hour / 12)? "PM" : "AM");
+            std::snprintf(time_string, 30, "%2i:%02i %s", ((time.hour % 12) == 0)? 12 : time.hour % 12, time.minute, (time.hour / 12)? "PM" : "AM");
 
         G2D::FontSetStyle(1.f, WHITE, INTRAFONT_ALIGN_LEFT);
         G2D::DrawText(5, 14, time_string);

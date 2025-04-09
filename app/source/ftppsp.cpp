@@ -266,7 +266,7 @@ static int gen_list_format(char *out, int n, int dir, const SceIoStat *stat, con
     };
     
     char yt[13] = {0};
-    pspTime cdt;
+    ScePspDateTime cdt;
     sceRtcGetCurrentClockLocalTime(&cdt);
     
     if (cdt.year == stat->sce_st_mtime.year)
@@ -283,7 +283,7 @@ static void send_LIST(ftppsp_client_info_t *client, const char *path) {
     char buffer[512] = {0};
     SceUID dir;
     SceIoDirent dirent;
-    SceIoStat stat;
+    SceIoStat stat = {0};
     char *devname;
     int send_devices = 0;
     

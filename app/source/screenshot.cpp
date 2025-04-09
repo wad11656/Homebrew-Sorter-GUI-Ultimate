@@ -97,7 +97,7 @@ namespace Screenshot {
 
     int Capture(void) {
         int ret = 0;
-        pspTime time;
+        ScePspDateTime time;
         
         if (R_FAILED(ret = sceRtcGetCurrentClockLocalTime(&time)))
             return ret;
@@ -107,7 +107,7 @@ namespace Screenshot {
             
         static char path[128];
         std::snprintf(path, 128, Utils::IsInternalStorage()? "ef0:/PSP/PHOTO/CMFileManager/screenshot_%02d%02d%02d-%i.bmp" : 
-            "ms0:/PSP/PHOTO/CMFileManager/screenshot_%02d%02d%02d-%02d%02d%02d.png", time.year, time.month, time.day, time.hour, time.minutes, time.seconds);
+            "ms0:/PSP/PHOTO/CMFileManager/screenshot_%02d%02d%02d-%02d%02d%02d.png", time.year, time.month, time.day, time.hour, time.minute, time.second);
         
         Screenshot::Save(path);
         return 0;
