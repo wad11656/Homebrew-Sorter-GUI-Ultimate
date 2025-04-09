@@ -1,5 +1,4 @@
-#ifndef _CMFILEMANAGER_KERNEL_FUNCTIONS_H_
-#define _CMFILEMANAGER_KERNEL_FUNCTIONS_H_
+#pragma once
 
 #if defined (__cplusplus)
 extern "C" {
@@ -40,6 +39,4 @@ extern int pspKernelLoadModuleBuffer(SceSize size, void *buf, s32 flag, const Sc
 
 #if defined (__cplusplus)
 }
-#endif
-
 #endif

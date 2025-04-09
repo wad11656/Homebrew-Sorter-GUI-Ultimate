@@ -1,5 +1,4 @@
-#ifndef _CMFILEMANAGER_TEXTURES_H_
-#define _CMFILEMANAGER_TEXTURES_H_
+#pragma once
 
 #include <glib2d.h>
 #include <string>
@@ -24,5 +23,3 @@ namespace Textures {
     void Load(void);
     void Free(void);
 }
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef _CMFILEMANAGER_MUTEX_H_
-#define _CMFILEMANAGER_MUTEX_H_
+#pragma once
 
 #define PSP_MUTEX_ATTR_FIFO 0
 
@@ -14,7 +13,4 @@ int sceKernelUnlockMutex(int mutexId, int count);
 
 #ifdef __cplusplus
 }
-#endif
-
-
 #endif

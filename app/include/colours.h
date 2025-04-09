@@ -1,5 +1,4 @@
-#ifndef _CMFILEMANAGER_COLOURS_H_
-#define _CMFILEMANAGER_COLOURS_H_
+#pragma once
 
 #include <glib2d.h>
 
@@ -20,5 +19,3 @@ extern g2dColor BG_COLOUR, STATUS_BAR_COLOUR, MENU_BAR_COLOUR, SELECTOR_COLOUR, 
 namespace Colours {
     void Get(void);
 }
-
-#endif

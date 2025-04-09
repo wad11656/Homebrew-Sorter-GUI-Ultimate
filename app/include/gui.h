@@ -1,5 +1,4 @@
-#ifndef _CMFILEMANAGER_GUI_HELPER_H_
-#define _CMFILEMANAGER_GUI_HELPER_H_
+#pragma once
 
 #include <glib2d.h>
 #include <pspiofilemgr.h>
@@ -62,5 +61,3 @@ namespace GUI {
     void DisplayImageViewer(MenuItem &item);
     void ControlImageViewer(MenuItem &item, float &delta);
 }
-
-#endif

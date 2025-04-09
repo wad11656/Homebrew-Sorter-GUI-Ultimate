@@ -1,5 +1,4 @@
-#ifndef _CMFILEMANAGER_UTILS_H_
-#define _CMFILEMANAGER_UTILS_H_
+#pragma once
 
 #include <pspctrl.h>
 #include <psptypes.h>
@@ -49,5 +48,3 @@ namespace Utils {
     bool IsCancelButtonPressed(void);
     int GetLanguage(void);
 }
-
-#endif

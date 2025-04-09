@@ -1,9 +1,7 @@
 /*
  * Copyright (c) 2021 Sergi Granell (xerpi), Joel16
- */
-
-#ifndef _CMFILEMANAGER_FTPPSP_H_
-#define _CMFILEMANAGER_FTPPSP_H_
+*/
+#pragma once
 
 #include <pspsdk.h>
 #include <arpa/inet.h>
@@ -67,5 +65,3 @@ int ftppsp_ext_add_custom_command(const char *cmd, cmd_dispatch_func func);
 int ftppsp_ext_del_custom_command(const char *cmd);
 void ftppsp_ext_client_send_ctrl_msg(ftppsp_client_info_t *client, const char *msg);
 void ftppsp_ext_client_send_data_msg(ftppsp_client_info_t *client, const char *str);
-
-#endif

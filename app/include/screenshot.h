@@ -1,8 +1,5 @@
-#ifndef _CMFILEMANAGER_SCREENSHOT_H_
-#define _CMFILEMANAGER_SCREENSHOT_H_
+#pragma once
 
 namespace Screenshot {
     int Capture(void);
 }
-
-#endif

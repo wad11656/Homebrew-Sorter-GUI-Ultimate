@@ -1,5 +1,4 @@
-#ifndef _CMFILEMANAGER_AUDIO_H_
-#define _CMFILEMANAGER_AUDIO_H_
+#pragma once
 
 #include <glib2d.h>
 #include <psptypes.h>
@@ -98,5 +97,3 @@ namespace Audio {
     u64 Seek(u64 index);
     void Exit(void);
 }
-
-#endif

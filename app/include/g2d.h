@@ -1,5 +1,4 @@
-#ifndef _CMFILEMANAGER_GLIB2D_HELPER_H_
-#define _CMFILEMANAGER_GLIB2D_HELPER_H_
+#pragma once
 
 #include <glib2d.h>
 #include <intraFont.h>
@@ -17,5 +16,3 @@ namespace G2D {
     float GetTextHeight(void);
     float DrawText(float x, float y, const std::string &text);
 }
-
-#endif

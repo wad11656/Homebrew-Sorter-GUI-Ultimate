@@ -1,5 +1,4 @@
-#ifndef _CMFILEMANAGER_FS_H_
-#define _CMFILEMANAGER_FS_H_
+#pragma once
 
 #include <pspiofilemgr.h>
 #include <string>
@@ -43,5 +42,3 @@ namespace FS {
     int Delete(SceIoDirent &entry);
     std::string BuildPath(const std::string &path, const std::string &filename);
 }
-
-#endif

@@ -12,8 +12,7 @@
  *
  * $Id: pspaudiolib.h 1874 2006-04-18 13:20:58Z tyranid $
  */
-#ifndef CMFILEMANAGER_PSPAUDIOLIB_CM_H
-#define CMFILEMANAGER_PSPAUDIOLIB_CM_H
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,6 +48,4 @@ int  pspAudioOutBlocking(unsigned int channel, unsigned int vol1, unsigned int v
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif

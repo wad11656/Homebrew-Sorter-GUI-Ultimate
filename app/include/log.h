@@ -1,8 +1,5 @@
-#ifndef _CMFILEMANAGER_LOG_H_
-#define _CMFILEMANAGER_LOG_H_
+#pragma once
 
 namespace Log {
     int Error(const char *format, ...);
 }
-
-#endif
