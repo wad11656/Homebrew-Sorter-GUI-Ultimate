@@ -16,13 +16,12 @@ VERSION_MINOR :=  1
 VERSION_MICRO :=  0
 
 INCDIR   = ../libs/ ../libs/include ../libs/libnsbmp ../libs/libnsgif ../libs/include/opus include
-CFLAGS   = -Os -Wall -ffast-math -Wno-narrowing -Wno-unused-variable \
+CFLAGS   = -Os -G0 -Wall -ffast-math -Wno-narrowing -Wno-unused-variable \
            -DVERSION_MAJOR=$(VERSION_MAJOR) -DVERSION_MINOR=$(VERSION_MINOR) -DVERSION_MICRO=$(VERSION_MICRO)
 CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti -std=gnu++17
 ASFLAGS  := $(CFLAGS)
 
 BUILD_PRX = 1
-PSP_LARGE_MEMORY = 1
 
 LIBDIR  = ../libs/lib
 LDFLAGS =
