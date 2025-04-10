@@ -1,5 +1,6 @@
+#include <xmp.h>
+
 #include "audio.h"
-#include "xmp.h"
 
 namespace XM {
     static xmp_context xmp;

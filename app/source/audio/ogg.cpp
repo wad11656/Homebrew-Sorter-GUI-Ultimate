@@ -1,9 +1,9 @@
 #include <pspiofilemgr.h>
+#include <vorbis/codec.h>
+#include <vorbis/vorbisfile.h>
 
 #include "audio.h"
 #include "utils.h"
-#include "vorbis/codec.h"
-#include "vorbis/vorbisfile.h"
 
 namespace OGG {
     static OggVorbis_File ogg;
