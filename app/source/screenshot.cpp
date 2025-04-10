@@ -1,13 +1,11 @@
 #include <cstdio>
+#include <png.h>
 #include <pspdisplay.h>
 #include <pspiofilemgr.h>
-#include <psptypes.h>
-#include <sys/time.h>
 #include <psprtc.h>
 #include <string>
 
 #include "fs.h"
-#include "libpng/png.h"
 #include "utils.h"
 
 namespace Screenshot {

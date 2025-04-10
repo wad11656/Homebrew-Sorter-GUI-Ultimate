@@ -2,11 +2,11 @@
 #include <cstdio>
 #include <cstring>
 #include <jpeglib.h>
+#include <png.h>
 
 #include "fs.h"
 #include "libnsbmp.h"
 #include "libnsgif.h"
-#include "libpng/png.h"
 #include "log.h"
 #include "textures.h"
 #include "utils.h"
@@ -96,10 +96,6 @@ namespace Image {
         assert(bitmap);
         std::free(bitmap);
     }
-
-    static size_t GetBPP([[maybe_unused]] void *bitmap) {
-        return BYTES_PER_PIXEL;
-    }
     
     static void Modified([[maybe_unused]] void *bitmap) {
         assert(bitmap);
@@ -112,8 +108,7 @@ namespace Textures {
         bmp_bitmap_callback_vt bitmap_callbacks = {
             Image::Create,
             Image::Destroy,
-            Image::GetBuffer,
-            Image::GetBPP
+            Image::GetBuffer
         };
         
         bmp_result code = BMP_OK;
