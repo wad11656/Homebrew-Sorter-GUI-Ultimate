@@ -1,8 +1,8 @@
 #include <assert.h>
 #include <cstdio>
 #include <cstring>
-#include <jpeglib.h>
 #include <png.h>
+#include <turbojpeg.h>
 
 #include "fs.h"
 #include "libnsbmp.h"
@@ -179,47 +179,43 @@ namespace Textures {
     }
 
     g2dTexture *LoadImageBufferJPEG(unsigned char *data, int size) {
-        struct jpeg_decompress_struct info;
-        struct jpeg_error_mgr err;
-    
-        info.err = jpeg_std_error(&err);
-        jpeg_create_decompress(&info);
-        jpeg_mem_src(&info, data, size);
-    
-        if (jpeg_read_header(&info, TRUE) != JPEG_HEADER_OK) {
-            Log::Error("%s(jpeg_read_header) failed\n", __func__);
-            jpeg_destroy_decompress(&info);
+        tjhandle tj = tjInitDecompress();
+        if (!tj) {
+            Log::Error("%s(tjInitDecompress) failed: %s\n", __func__, tjGetErrorStr());
             return nullptr;
         }
     
-        info.out_color_space = JCS_EXT_RGBA;
-        jpeg_start_decompress(&info);
-        
-        if (info.output_width > 512 || info.output_height > 512) {
+        int width = 0, height = 0, jpegSubsamp = 0;
+        if (tjDecompressHeader2(tj, data, size, &width, &height, &jpegSubsamp) != 0) {
+            Log::Error("%s(tjDecompressHeader2) failed: %s\n", __func__, tjGetErrorStr());
+            tjDestroy(tj);
+            return nullptr;
+        }
+    
+        if (width > 512 || height > 512) {
             Log::Error("%s g2d does not support images greater than 512x512\n", __func__);
-            jpeg_destroy_decompress(&info);
+            tjDestroy(tj);
             return nullptr;
         }
     
-        int stride = info.output_width * 4;
-        u8 *buffer = static_cast<u8 *>(std::malloc(stride * info.output_height));
+        int stride = width * 4;
+        u8 *buffer = static_cast<u8 *>(std::malloc(stride * height));
         if (!buffer) {
             Log::Error("%s failed to allocate buffer\n", __func__);
-            jpeg_destroy_decompress(&info);
+            tjDestroy(tj);
             return nullptr;
         }
     
-        while (info.output_scanline < info.output_height) {
-            u8 *ptr = buffer + stride * info.output_scanline;
-            jpeg_read_scanlines(&info, &ptr, 1);
+        if (tjDecompress2(tj, data, size, buffer, width, stride, height, TJPF_RGBA, TJFLAG_FASTDCT) != 0) {
+            Log::Error("%s(tjDecompress2) failed: %s\n", __func__, tjGetErrorStr());
+            std::free(buffer);
+            tjDestroy(tj);
+            return nullptr;
         }
     
-        g2dTexture *tex = g2dTexLoad(buffer, info.output_width, info.output_height, G2D_SWIZZLE);
-    
-        jpeg_finish_decompress(&info);
-        jpeg_destroy_decompress(&info);
+        g2dTexture *tex = g2dTexLoad(buffer, width, height, G2D_SWIZZLE);
         std::free(buffer);
-    
+        tjDestroy(tj);
         return tex;
     }
 

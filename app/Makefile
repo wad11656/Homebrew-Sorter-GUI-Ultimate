@@ -25,7 +25,7 @@ BUILD_PRX = 1
 LIBDIR  = ../libs/lib
 LDFLAGS =
 LIBS    = -lintrafont -lglib2d -lxmp -lmpg123 -lvorbisfile -lvorbis -lopusfile -lopus -lFLAC -logg \
-          -larchive -llzma -ljpeg -lpng16 -lstdc++ -lz \
+          -larchive -llzma -lturbojpeg -ljpeg -lpng16 -lstdc++ -lz \
           -lpspkubridge -lpspsystemctrl_user -lpspusbdevice \
           -lpspgu -lpspvram -lpspaudio -lpsppower -lpspreg -lpspusb -lpspusbstor -lpspumd
 
