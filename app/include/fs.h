@@ -25,7 +25,7 @@ namespace FS {
     int MakeDir(const std::string &path);
     int RecursiveMakeDir(const std::string &path);
     int CreateFile(const std::string &path);
-    std::string GetFileExt(const std::string &filename);
+    const char* GetFileExt(const char *filename);
     FileType GetFileType(const std::string &filename);
     SceOff GetFileSize(const std::string &path);
     char *GetFileTimestamp(SceIoStat &stat, FileTimestamp time);

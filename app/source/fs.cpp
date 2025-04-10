@@ -12,9 +12,9 @@
 
 namespace FS {
     typedef struct {
-        std::string  copy_path;
-        std::string copy_filename;
-        bool is_dir = false;
+        std::string  path;
+        std::string filename;
+        bool isDir = false;
     } FSCopyEntry;
     
     static FSCopyEntry fs_copy_entry;
@@ -46,31 +46,32 @@ namespace FS {
     int MakeDir(const std::string &path) {
         int ret = 0;
 #ifdef FS_DEBUG
-        if (R_FAILED(ret = sceIoMkdir(path.c_str(), 0777)))
-            return ret;
+        if (R_FAILED(ret = sceIoMkdir(path.c_str(), 0777))) {
 #else
-        if (R_FAILED(ret = pspIoMakeDir(path.c_str(), 0777)))
-            return ret;
+        if (R_FAILED(ret = pspIoMakeDir(path.c_str(), 0777))) {
 #endif
+            return ret;
+        }
             
         return 0;
     }
 
     // https://newbedev.com/mkdir-c-function
     int RecursiveMakeDir(const std::string &path) {
-        std::string current_level = "";
+        std::string currentLevel = "";
         std::string level;
         std::stringstream ss(path);
         
         // split path using slash as a separator
         while (std::getline(ss, level, '/')) {
-            current_level += level; // append folder to the current level
+            currentLevel += level; // append folder to the current level
             
             // create current level
-            if (!FS::DirExists(current_level) && FS::MakeDir(current_level.c_str()) != 0)
+            if (!FS::DirExists(currentLevel) && FS::MakeDir(currentLevel.c_str()) != 0) {
                 return -1;
+            }
                 
-            current_level += "/"; // don't forget to append a slash
+            currentLevel += "/"; // don't forget to append a slash
         }
         
         return 0;
@@ -94,28 +95,42 @@ namespace FS {
         return file;
     }
     
-    std::string GetFileExt(const std::string &filename) {
-        std::string ext = std::filesystem::path(filename).extension();
-        std::transform(ext.begin(), ext.end(), ext.begin(), ::toupper);
-        return ext;
+    const char* GetFileExt(const char *filename) {
+        const char *ext = strrchr(filename, '.');
+        
+        if (ext == NULL) {
+            return "";
+        }
+        
+        return ext + 1;
     }
-    
-    FileType GetFileType(const std::string &filename) {
-        std::string ext = FS::GetFileExt(filename);
 
-        if ((!ext.compare(".CSO")) || (!ext.compare(".ISO")) || (!ext.compare(".PBP")))
+    FileType GetFileType(const std::string &filename) {
+        const char *ext = FS::GetFileExt(filename.c_str());
+
+        if ((strncasecmp(ext, "cso", 3) == 0) || (strncasecmp(ext, "iso", 3) == 0) || (strncasecmp(ext, "pbp", 3) == 0)) {
             return FileTypeApp;
-        else if ((!ext.compare(".7Z")) || (!ext.compare(".LZMA")) || (!ext.compare(".RAR")) || (!ext.compare(".ZIP")))
+        }
+        else if ((strncasecmp(ext, "7z", 2) == 0) || (strncasecmp(ext, "lzma", 4) == 0) || (strncasecmp(ext, "rar", 3) == 0)
+            || (strncasecmp(ext, "zip", 3) == 0)) {
             return FileTypeArchive;
-        else if ((!ext.compare(".FLAC")) || (!ext.compare(".IT")) || (!ext.compare(".MOD")) || (!ext.compare(".MP3")) || (!ext.compare(".OGG"))
-            || (!ext.compare(".OPUS")) || (!ext.compare(".S3M")) || (!ext.compare(".WAV")) || (!ext.compare(".XM")))
-            return FileTypeAudio;
-        else if ((!ext.compare(".BMP")) || (!ext.compare(".GIF")) || (!ext.compare(".JPG")) || (!ext.compare(".JPEG")) || (!ext.compare(".PGM"))
-            || (!ext.compare(".PPM")) || (!ext.compare(".PNG")) || (!ext.compare(".PSD")) || (!ext.compare(".TGA")) || (!ext.compare(".WEBP")))
-            return FileTypeImage;
-        else if ((!ext.compare(".CFG")) || (!ext.compare(".CONF")) || (!ext.compare(".INI")) || (!ext.compare(".JSON")) || (!ext.compare(".LOG"))
-            || (!ext.compare(".MD")) || (!ext.compare(".TXT")))
+        }
+        else if ((strncasecmp(ext, "flac", 4) == 0) || (strncasecmp(ext, "it", 2) == 0) || (strncasecmp(ext, "mod", 3) == 0)
+            || (strncasecmp(ext, "mp3", 3) == 0) || (strncasecmp(ext, "ogg", 3) == 0) || (strncasecmp(ext, "opus", 4) == 0)
+            || (strncasecmp(ext, "s3m", 3) == 0) || (strncasecmp(ext, "wav", 3) == 0) || (strncasecmp(ext, "xm", 2) == 0)) {
+                return FileTypeAudio;
+        }
+        else if ((strncasecmp(ext, "bmp", 3) == 0) || (strncasecmp(ext, "gif", 3) == 0) || (strncasecmp(ext, "jpg", 3) == 0)
+            || (strncasecmp(ext, "jpeg", 4) == 0) || (strncasecmp(ext, "pgm", 3) == 0) || (strncasecmp(ext, "ppm", 3) == 0)
+            || (strncasecmp(ext, "png", 3) == 0) || (strncasecmp(ext, "psd", 3) == 0) || (strncasecmp(ext, "tga", 3) == 0)
+            || (strncasecmp(ext, "webp", 4) == 0)) {
+                return FileTypeImage;
+        }
+        else if ((strncasecmp(ext, "cfg", 3) == 0) || (strncasecmp(ext, "conf", 4) == 0) || (strncasecmp(ext, "ini", 3) == 0)
+            || (strncasecmp(ext, "json", 4) == 0) || (strncasecmp(ext, "log", 3) == 0) || (strncasecmp(ext, "md", 2) == 0)
+            || (strncasecmp(ext, "txt", 3) == 0)) {
             return FileTypeText;
+        }
             
         return FileTypeNone;
     }
@@ -127,12 +142,12 @@ namespace FS {
         std::memset(&stat, 0, sizeof(stat));
         
 #ifdef FS_DEBUG
-        if (R_FAILED(ret = sceIoGetstat(path.c_str(), &stat)))
-            return ret;
+        if (R_FAILED(ret = sceIoGetstat(path.c_str(), &stat))) {
 #else
-        if (R_FAILED(ret = pspIoGetstat(path.c_str(), &stat)))
-            return ret;
+        if (R_FAILED(ret = pspIoGetstat(path.c_str(), &stat))) {
 #endif
+            return ret;
+        }
             
         return stat.st_size;
     }
@@ -211,41 +226,33 @@ namespace FS {
         return file;
     }
 
-    static bool Sort(const SceIoDirent &entryA, const SceIoDirent &entryB) {
-        if ((FIO_S_ISDIR(entryA.d_stat.st_mode)) && !(FIO_S_ISDIR(entryB.d_stat.st_mode)))
-            return true;
-        else if (!(FIO_S_ISDIR(entryA.d_stat.st_mode)) && (FIO_S_ISDIR(entryB.d_stat.st_mode)))
-            return false;
-        else {
-            switch(cfg.sort) {
-                case 0:
-                    if (strcasecmp(entryA.d_name, entryB.d_name) < 0)
-                        return true;
-                    break;
-
-                case 1:
-                    if (strcasecmp(entryB.d_name, entryA.d_name) < 0)
-                        return true;
-                    break;
-
-                case 2:
-                    if (entryB.d_stat.st_size < entryA.d_stat.st_size)
-                        return true;
-                    break;
-
-                case 3:
-                    if (entryA.d_stat.st_size < entryB.d_stat.st_size)
-                        return true;
-                    break;
-
-                default:
-                    break;
-            }
+    static bool Sort(const SceIoDirent &a, const SceIoDirent &b) {
+        bool aIsDir = FIO_S_ISDIR(a.d_stat.st_mode);
+        bool bIsDir = FIO_S_ISDIR(b.d_stat.st_mode);
+    
+        // Directories first
+        if (aIsDir != bIsDir) {
+            return aIsDir;
         }
-        
-        return false;
+    
+        switch (cfg.sort) {
+            case 0: // Name A-Z
+                return strcasecmp(a.d_name, b.d_name) < 0;
+    
+            case 1: // Name Z-A
+                return strcasecmp(a.d_name, b.d_name) > 0;
+    
+            case 2: // Size descending
+                return a.d_stat.st_size > b.d_stat.st_size;
+    
+            case 3: // Size ascending
+                return a.d_stat.st_size < b.d_stat.st_size;
+    
+            default:
+                return false;
+        }
     }
-
+    
     int GetDirList(const std::string &path, std::vector<SceIoDirent> &entries) {
         int ret = 0;
         SceUID dir = 0;
@@ -253,89 +260,92 @@ namespace FS {
 
 #ifdef FS_DEBUG
         if (R_FAILED(ret = dir = sceIoDopen(path.c_str()))) {
-            Log::Error("sceIoDopen(%s) failed: 0x%08x\n", path.c_str(), ret);
+            Log::Error("%s(sceIoDopen) failed: %s (0x%08x)\n", __func__, path.c_str(), ret);
             return ret;
         }
 #else
         if (R_FAILED(ret = dir = pspIoOpenDir(path.c_str()))) {
-            Log::Error("pspIoOpenDir(%s) failed: 0x%08x\n", path.c_str(), ret);
+            Log::Error("%s(pspIoOpenDir) failed: %s (0x%08x)\n", __func__, path.c_str(), ret);
             return ret;
         }
 #endif
-        do {
-            SceIoDirent entry;
+        dir = ret;
+        SceIoDirent entry;
+    
+        while (true) {
             std::memset(&entry, 0, sizeof(entry));
-
 #ifdef FS_DEBUG
             ret = sceIoDread(dir, &entry);
 #else
             ret = pspIoReadDir(dir, &entry);
 #endif
-            if (ret > 0) {
-                if ((std::strcmp(entry.d_name, ".") == 0) || (std::strcmp(entry.d_name, "..") == 0))
-                    continue;
-
-                entries.push_back(entry);
+            if (ret <= 0) {
+                break;
             }
-        } while (ret > 0);
-
-        std::sort(entries.begin(), entries.end(), FS::Sort);
-
+    
+            if (entry.d_name[0] == '.' && (entry.d_name[1] == '\0' || (entry.d_name[1] == '.' && entry.d_name[2] == '\0'))) {
+                continue; // skip "." and ".."
+            }
+    
+            entries.push_back(entry);
+        }
+    
 #ifdef FS_DEBUG
         sceIoDclose(dir);
 #else
         pspIoCloseDir(dir);
 #endif
+    
+        std::sort(entries.begin(), entries.end(), FS::Sort);
         return 0;
     }
 
-    //TODO: Clean up change directory impl.
     static int ChangeDir(const std::string &path, std::vector<SceIoDirent> &entries) {
         int ret = 0;
-        std::vector<SceIoDirent> new_entries;
+        std::vector<SceIoDirent> newEntries;
         
-        if (R_FAILED(ret = FS::GetDirList(path, new_entries)))
+        if (R_FAILED(ret = FS::GetDirList(path, newEntries))) {
             return ret;
-            
-        // Free entries and change the current working directory.
-        entries.clear();
+        }
+        
+        entries.swap(newEntries);
         cfg.cwd = path;
-        entries = new_entries;
         return 0;
     }
 
     int ChangeDirNext(const std::string &path, std::vector<SceIoDirent> &entries) {
-        std::string new_path = FS::BuildPath(cfg.cwd, path);
-        return FS::ChangeDir(new_path, entries);
+        const std::string newPath = FS::BuildPath(cfg.cwd, path);
+        return FS::ChangeDir(newPath, entries);
     }
     
     int ChangeDirPrev(std::vector<SceIoDirent> &entries) {
-        std::filesystem::path path = cfg.cwd;
-        std::string parent_path = path.parent_path();
+        std::string parentPath = std::filesystem::path(cfg.cwd).parent_path().string();
         
-        if (parent_path.back() == ':')
-            parent_path.append("/");
+        if (!parentPath.empty() && parentPath.back() == ':') {
+            parentPath += '/';
+        }
         
-        return FS::ChangeDir(parent_path.empty()? cfg.cwd : parent_path, entries);
+        return FS::ChangeDir(parentPath.empty()? cfg.cwd : parentPath, entries);
     }
     
     std::string GetFilename(const std::string &path) {
-        return std::filesystem::path(path).filename().u8string();
+        std::size_t pos = path.find_last_of("/\\");
+        return (pos == std::string::npos)? path : path.substr(pos + 1);
     }
 
-    static int CopyFile(const std::string &src_path, const std::string &dest_path) {
+    static int CopyFile(const std::string &src_path, const std::string &destPath) {
         int ret = 0;
-        SceUID src_handle = 0, dest_handle = 0;
+        SceUID srcHandle = 0, destHandle = 0;
         scePowerLock(0);
 
 #ifdef FS_DEBUG
-        if (R_FAILED(ret = src_handle = sceIoOpen(src_path.c_str(), PSP_O_RDONLY, 0))) {
+        if (R_FAILED(ret = srcHandle = sceIoOpen(src_path.c_str(), PSP_O_RDONLY, 0))) {
             Log::Error("sceIoOpen(%s) failed: 0x%x\n", src_path.c_str(), ret);
             scePowerUnlock(0);
             return ret;
         }
 #else
-        if (R_FAILED(ret = src_handle = pspIoOpenFile(src_path.c_str(), PSP_O_RDONLY, 0))) {
+        if (R_FAILED(ret = srcHandle = pspIoOpenFile(src_path.c_str(), PSP_O_RDONLY, 0))) {
             Log::Error("pspIoOpenFile(%s) failed: 0x%x\n", src_path.c_str(), ret);
             scePowerUnlock(0);
             return ret;
@@ -343,113 +353,113 @@ namespace FS {
 #endif
 
 #ifdef FS_DEBUG
-        u64 size = sceIoLseek(src_handle, 0, PSP_SEEK_END);
-        sceIoLseek(src_handle, 0, PSP_SEEK_SET);
+        u64 size = sceIoLseek(srcHandle, 0, PSP_SEEK_END);
+        sceIoLseek(srcHandle, 0, PSP_SEEK_SET);
 #else
-        u64 size = pspIoLseek(src_handle, 0, PSP_SEEK_END);
-        pspIoLseek(src_handle, 0, PSP_SEEK_SET);
+        u64 size = pspIoLseek(srcHandle, 0, PSP_SEEK_END);
+        pspIoLseek(srcHandle, 0, PSP_SEEK_SET);
 #endif
 
         // Make sure we have enough storage to carry out this operation
         if (Utils::GetFreeStorage() < size) {
             Log::Error("Not enough storage is available to process this command 0x%x\n", src_path.c_str(), ret);
 #ifdef FS_DEBUG
-            sceIoClose(src_handle);
+            sceIoClose(srcHandle);
 #else
-            pspIoCloseFile(src_handle);
+            pspIoCloseFile(srcHandle);
 #endif
             scePowerUnlock(0);
             return -1;
         }
 
-        if (R_FAILED(ret = dest_handle = sceIoOpen(dest_path.c_str(), PSP_O_WRONLY | PSP_O_CREAT | PSP_O_APPEND, 0777))) {
-            Log::Error("sceIoOpen(%s) failed: 0x%x\n", dest_path.c_str(), ret);
+        if (R_FAILED(ret = destHandle = sceIoOpen(destPath.c_str(), PSP_O_WRONLY | PSP_O_CREAT | PSP_O_APPEND, 0777))) {
+            Log::Error("sceIoOpen(%s) failed: 0x%x\n", destPath.c_str(), ret);
 #ifdef FS_DEBUG
-            sceIoClose(src_handle);
+            sceIoClose(srcHandle);
 #else
-            pspIoCloseFile(src_handle);
+            pspIoCloseFile(srcHandle);
 #endif
             scePowerUnlock(0);
             return ret;
         }
         
-        u32 bytes_read = 0, bytes_written = 0;
-        const u64 buf_size = 0x10000;
+        u32 bytesRead = 0, bytesWritten = 0;
+        const u64 bufSize = 0x10000;
         u64 offset = 0;
-        u8 *buf = new u8[buf_size];
+        u8 *buf = new u8[bufSize];
         std::string filename = std::filesystem::path(src_path.data()).filename();
         
         do {
             if (Utils::IsCancelButtonPressed()) {
                 delete[] buf;
 #ifdef FS_DEBUG
-                sceIoClose(src_handle);
-                sceIoClose(dest_handle);
+                sceIoClose(srcHandle);
+                sceIoClose(destHandle);
 #else
-                pspIoCloseFile(src_handle);
-                pspIoCloseFile(dest_handle);
+                pspIoCloseFile(srcHandle);
+                pspIoCloseFile(destHandle);
 #endif
                 scePowerUnlock(0);
                 return 0;
             }
             
-            std::memset(buf, 0, buf_size);
+            std::memset(buf, 0, bufSize);
 
 #ifdef FS_DEBUG        
-            if (R_FAILED(ret = bytes_read = sceIoRead(src_handle, buf, buf_size))) {
+            if (R_FAILED(ret = bytesRead = sceIoRead(srcHandle, buf, bufSize))) {
                 Log::Error("sceIoRead(%s) failed: 0x%x\n", src_path.c_str(), ret);
 #else
-            if (R_FAILED(ret = bytes_read = pspIoReadFile(src_handle, buf, buf_size))) {
+            if (R_FAILED(ret = bytesRead = pspIoReadFile(srcHandle, buf, bufSize))) {
                 Log::Error("pspIoReadFile(%s) failed: 0x%x\n", src_path.c_str(), ret);
 #endif
                 delete[] buf;
 #ifdef FS_DEBUG
-                sceIoClose(src_handle);
-                sceIoClose(dest_handle);
+                sceIoClose(srcHandle);
+                sceIoClose(destHandle);
 #else
-                pspIoCloseFile(src_handle);
-                pspIoCloseFile(dest_handle);
+                pspIoCloseFile(srcHandle);
+                pspIoCloseFile(destHandle);
 #endif
                 scePowerUnlock(0);
                 return ret;
             }
 
 #ifdef FS_DEBUG
-            if (R_FAILED(ret = bytes_written = sceIoWrite(dest_handle, buf, bytes_read))) {
-                Log::Error("sceIoWrite(%s) failed: 0x%x\n", dest_path.c_str(), ret);
+            if (R_FAILED(ret = bytesWritten = sceIoWrite(destHandle, buf, bytesRead))) {
+                Log::Error("sceIoWrite(%s) failed: 0x%x\n", destPath.c_str(), ret);
 #else
-            if (R_FAILED(ret = bytes_written = pspIoWriteFile(dest_handle, buf, bytes_read))) {
-                Log::Error("pspIoWriteFile(%s) failed: 0x%x\n", dest_path.c_str(), ret);
+            if (R_FAILED(ret = bytesWritten = pspIoWriteFile(destHandle, buf, bytesRead))) {
+                Log::Error("pspIoWriteFile(%s) failed: 0x%x\n", destPath.c_str(), ret);
 #endif
                 delete[] buf;
 #ifdef FS_DEBUG
-                sceIoClose(src_handle);
-                sceIoClose(dest_handle);
+                sceIoClose(srcHandle);
+                sceIoClose(destHandle);
 #else
-                pspIoCloseFile(src_handle);
-                pspIoCloseFile(dest_handle);
+                pspIoCloseFile(srcHandle);
+                pspIoCloseFile(destHandle);
 #endif
                 scePowerUnlock(0);
                 return ret;
             }
             
-            offset += bytes_read;
+            offset += bytesRead;
             GUI::ProgressBar("Copying", filename.c_str(), offset, size);
         } while(offset < size);
         
         delete[] buf;
 #ifdef FS_DEBUG
-        sceIoClose(src_handle);
-        sceIoClose(dest_handle);
+        sceIoClose(srcHandle);
+        sceIoClose(destHandle);
 #else
-        pspIoCloseFile(src_handle);
-        pspIoCloseFile(dest_handle);
+        pspIoCloseFile(srcHandle);
+        pspIoCloseFile(destHandle);
 #endif
         scePowerUnlock(0);
         return 0;
     }
     
-    static int CopyDir(const std::string &src_path, const std::string &dest_path) {
+    static int CopyDir(const std::string &src_path, const std::string &destPath) {
         int ret = 0;
         SceUID dir;
 
@@ -467,9 +477,9 @@ namespace FS {
         
         // This may fail or not, but we don't care -> make the dir if it doesn't exist, otherwise continue.
 #ifdef FS_DEBUG
-        sceIoMkdir(dest_path.c_str(), 0777);
+        sceIoMkdir(destPath.c_str(), 0777);
 #else
-        pspIoMakeDir(dest_path.c_str(), 0777);
+        pspIoMakeDir(destPath.c_str(), 0777);
 #endif
         
         do {
@@ -486,7 +496,7 @@ namespace FS {
                     continue;
                     
                 std::string src = FS::BuildPath(src_path, entry.d_name);
-                std::string dest = FS::BuildPath(dest_path, entry.d_name);
+                std::string dest = FS::BuildPath(destPath, entry.d_name);
                 
                 if (FIO_S_ISDIR(entry.d_stat.st_mode))
                     FS::CopyDir(src, dest); // Copy Folder (via recursion)
@@ -504,28 +514,29 @@ namespace FS {
     }
 
     static void ClearCopyData(void) {
-        fs_copy_entry.copy_path.clear();
-        fs_copy_entry.copy_filename.clear();
-        fs_copy_entry.is_dir = false;
+        fs_copy_entry.path.clear();
+        fs_copy_entry.filename.clear();
+        fs_copy_entry.isDir = false;
     }
     
     void Copy(SceIoDirent &entry, const std::string &path) {
         FS::ClearCopyData();
-        fs_copy_entry.copy_path = FS::BuildPath(path, entry.d_name);
-        fs_copy_entry.copy_filename.append(entry.d_name);
+        fs_copy_entry.path = FS::BuildPath(path, entry.d_name);
+        fs_copy_entry.filename.append(entry.d_name);
         
-        if (FIO_S_ISDIR(entry.d_stat.st_mode))
-            fs_copy_entry.is_dir = true;
+        if (FIO_S_ISDIR(entry.d_stat.st_mode)) {
+            fs_copy_entry.isDir = true;
+        }
     }
     
     int Paste(void) {
         int ret = 0;
-        std::string path = FS::BuildPath(cfg.cwd, fs_copy_entry.copy_filename);
+        std::string path = FS::BuildPath(cfg.cwd, fs_copy_entry.filename);
         
-        if (fs_copy_entry.is_dir) // Copy folder recursively
-            ret = FS::CopyDir(fs_copy_entry.copy_path, path);
+        if (fs_copy_entry.isDir) // Copy folder recursively
+            ret = FS::CopyDir(fs_copy_entry.path, path);
         else // Copy file
-            ret = FS::CopyFile(fs_copy_entry.copy_path, path);
+            ret = FS::CopyFile(fs_copy_entry.path, path);
             
         FS::ClearCopyData();
         return ret;
@@ -582,10 +593,10 @@ namespace FS {
 
     int Move(void) {
         int ret = 0;
-        std::string path = FS::BuildPath(cfg.cwd, fs_copy_entry.copy_filename);
+        std::string path = FS::BuildPath(cfg.cwd, fs_copy_entry.filename);
 
-        if (R_FAILED(ret = sceIoMove(fs_copy_entry.copy_path.c_str(), path.c_str()))) {
-            Log::Error("sceIoMove(%s, %s) failed: 0x%x\n", fs_copy_entry.copy_filename.c_str(), path.c_str(), ret);
+        if (R_FAILED(ret = sceIoMove(fs_copy_entry.path.c_str(), path.c_str()))) {
+            Log::Error("sceIoMove(%s, %s) failed: 0x%x\n", fs_copy_entry.filename.c_str(), path.c_str(), ret);
             FS::ClearCopyData();
             return ret;
         }
@@ -722,14 +733,18 @@ namespace FS {
 
         return 0;
     }
-
+    
     std::string BuildPath(const std::string &path, const std::string &filename) {
-        std::string new_path = path;
-
-        if (new_path.back() != '/')
-            new_path.append("/");
+        std::string result;
+        result.reserve(path.size() + 1 + filename.size());
+    
+        result += path;
+    
+        if (!path.empty() && path.back() != '/') {
+            result += '/';
+        }
         
-        new_path.append(filename);
-        return new_path;
+        result += filename;
+        return result;
     }
 }

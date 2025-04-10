@@ -40,8 +40,9 @@ namespace CSO {
         z.next_in = Z_NULL;
         z.avail_in = 0;
         
-        if (inflateInit2(&z, -15) != Z_OK)
+        if (inflateInit2(&z, -15) != Z_OK) {
             return -1;
+        }
             
         z.next_in = reinterpret_cast<u8 *>(i_buff);
         z.avail_in = i_size;
@@ -50,8 +51,9 @@ namespace CSO {
         
         inflate(&z, Z_FINISH);
         size = o_size - z.avail_out;
-        if (inflateEnd(&z) != Z_OK)
+        if (inflateEnd(&z) != Z_OK) {
             return -1;
+        }
             
         return size;
     }
@@ -62,55 +64,67 @@ namespace CSO {
         char tmp_buf[SECTOR_SIZE * 2] = {0}, tmp_buf_2[SECTOR_SIZE * 2] = {0};
         int ret = 0, error = 0;
         
-        if (R_FAILED(error = sceIoLseek(fd, 0, PSP_SEEK_SET)))
+        if (R_FAILED(error = sceIoLseek(fd, 0, PSP_SEEK_SET))) {
             return error;
+        }
             
-        if (R_FAILED(error = sceIoRead(fd, &ciso, sizeof(ciso))))
+        if (R_FAILED(error = sceIoRead(fd, &ciso, sizeof(ciso)))) {
             return error;
+        }
             
-        if (static_cast<unsigned long long>((pos + size)) > ciso.total_bytes)
+        if (static_cast<unsigned long long>((pos + size)) > ciso.total_bytes) {
             size = ciso.total_bytes - pos;
+        }
             
         int max_sector = ciso.total_bytes / ciso.block_size - 1;
         int start_sec = pos / SECTOR_SIZE;
         int end_sec = (pos + size - 1) / SECTOR_SIZE;
         int sector_num = start_sec;
         
-        if (sector_num > max_sector)
+        if (sector_num > max_sector) {
             return -1;
+        }
             
-        if (end_sec > max_sector)
+        if (end_sec > max_sector) {
             end_sec = max_sector;
+        }
             
         ret = 0;
         while(sector_num <= end_sec) {
-            if (R_FAILED(error = sceIoLseek(fd, sizeof(ciso) + (sector_num * 4), PSP_SEEK_SET)))
+            if (R_FAILED(error = sceIoLseek(fd, sizeof(ciso) + (sector_num * 4), PSP_SEEK_SET))) {
                 return error;
+            }
 
-            if (R_FAILED(error = sceIoRead(fd, &index, 4)))
+            if (R_FAILED(error = sceIoRead(fd, &index, 4))) {
                 return error;
+            }
                 
             u32 zip_flag = index & 0x80000000;
             index = (index & 0x7FFFFFFF) << ciso.align;
 
-            if (R_FAILED(error = sceIoRead(fd, &index2, 4)))
+            if (R_FAILED(error = sceIoRead(fd, &index2, 4))) {
                 return error;
+            }
                 
             int read_size = ((index2 & 0x7FFFFFFF) << ciso.align) - index;
 
-            if (R_FAILED(error = sceIoLseek(fd, index, PSP_SEEK_SET)))
+            if (R_FAILED(error = sceIoLseek(fd, index, PSP_SEEK_SET))) {
                 return error;
+            }
                 
             if (zip_flag != 0) {
-                if (R_FAILED(error = sceIoRead(fd, tmp_buf, ciso.block_size)))
+                if (R_FAILED(error = sceIoRead(fd, tmp_buf, ciso.block_size))) {
                     return error;
+                }
             }
             else {
-                if (R_FAILED(error = sceIoRead(fd, tmp_buf_2, read_size)))
+                if (R_FAILED(error = sceIoRead(fd, tmp_buf_2, read_size))) {
                     return error;
+                }
 
-                if (R_FAILED(error = CSO::Inflate(tmp_buf, ciso.block_size, tmp_buf_2, read_size)))
+                if (R_FAILED(error = CSO::Inflate(tmp_buf, ciso.block_size, tmp_buf_2, read_size))) {
                     return error;
+                }
             }
             
             if ((sector_num > start_sec) && (sector_num < end_sec)) {
@@ -121,11 +135,13 @@ namespace CSO {
                 int start_pos = 0;
                 int end_pos = ciso.block_size;
                 
-                if (sector_num == start_sec)
+                if (sector_num == start_sec) {
                     start_pos = pos - (start_sec * ciso.block_size);
+                }
                 
-                if (sector_num == end_sec)
+                if (sector_num == end_sec) {
                     end_pos = (pos + size) - (end_sec * ciso.block_size);
+                }
                     
                 read_size = end_pos - start_pos;
                 std::memcpy(buf, &tmp_buf[start_pos], read_size);
@@ -171,10 +187,12 @@ namespace ISO {
     }
     
     int ReadFile(void *buf, const std::string &path, int type, int pos, int size) {
-        if (type == 0)
+        if (type == 0) {
             return ISO::Read(buf, path, pos, size);
-        else if (type == 1)
+        }
+        else if (type == 1) {
             return CSO::Read(reinterpret_cast<char *>(buf), path, pos, size);
+        }
             
         return -1;
     }
@@ -187,8 +205,9 @@ namespace ISO {
         int now_dir_num = 1;
         int ret = 0;
 
-        if (*name == '/')
+        if (*name == '/') {
             name++;
+        }
             
         std::strcpy(work, name);
         char *ptr = std::strrchr(work, '/');
@@ -210,8 +229,9 @@ namespace ISO {
         u8 magic[8] = { 0x01, 0x43, 0x44, 0x30, 0x30, 0x31, 0x01, 0x00 };
         
         //Invalid Magic
-        if (std::memcmp(header, magic, sizeof(header)) != 0)
+        if (std::memcmp(header, magic, sizeof(header)) != 0) {
             return -1;
+        }
         ///////
         
         ISO::ReadFile(&path_table_size, path, type, 0x8084, 4);
@@ -219,8 +239,9 @@ namespace ISO {
         path_table_addr *= SECTOR_SIZE;
         
         char *table_buf = new char[path_table_size];
-        if (!table_buf)
+        if (!table_buf) {
             return -1;
+        }
         
         ret = ISO::ReadFile(table_buf, path, type, path_table_addr, path_table_size);
         
@@ -236,8 +257,9 @@ namespace ISO {
             
             while(tbl_ptr < path_table_size) {
                 u8 len_di = static_cast<u8>(table_buf[tbl_ptr]);
-                if (len_di == 0)
+                if (len_di == 0) {
                     break;
+                }
                     
                 tbl_ptr += 6;
                 
@@ -248,16 +270,18 @@ namespace ISO {
                         befor_dir_num = now_dir_num;
                         ptr = strchr(ptr, '/');
                         
-                        if (ptr != nullptr)
+                        if (ptr != nullptr) {
                             ptr++;
+                        }
                         else {
                             BINARY2INT(&dir_recode_addr, &table_buf[tbl_ptr - 6]);
                             break;
                         }
                     }
                 }
-                else
+                else {
                     tbl_ptr += 2;
+                }
                     
                 tbl_ptr += (len_di + 1) & ~1; // padding
                 now_dir_num++;
@@ -266,15 +290,17 @@ namespace ISO {
         
         delete[] table_buf;
         
-        if (dir_recode_addr == 0)
+        if (dir_recode_addr == 0) {
             return -1;
+        }
             
         dir_recode_addr *= SECTOR_SIZE;
         int dir_record_size = 0;
         ret = ISO::ReadFile(&dir_record_size, path, type, dir_recode_addr + 10, 4);
         char *dir_buf = new char[dir_record_size];
-        if (!dir_buf)
+        if (!dir_buf) {
             return -1;
+        }
             
         int dir_ptr = 0;
         ret = -1;
@@ -282,8 +308,9 @@ namespace ISO {
         
         while(dir_ptr < dir_record_size) {
             u8 len_dr = static_cast<u8>(dir_buf[dir_ptr]);
-            if (len_dr == 0)
+            if (len_dr == 0) {
                 dir_ptr++;
+            }
             else {
                 if (strncasecmp(&dir_buf[dir_ptr + 33], s_file, dir_buf[dir_ptr + 32]) == 0) {
                     BINARY2INT(pos, &dir_buf[dir_ptr + 2]);
@@ -369,11 +396,13 @@ namespace GameLauncher {
         u32 magic = 0;
         
         ISO::Read(&magic, path.c_str(), 0, sizeof(magic));
-        if (magic == 0x4F534943)
+        if (magic == 0x4F534943) {
             type = 1;
+        }
             
-        if (R_FAILED(ret = ISO::GetInfo(&pos, &size, &size_pos, path, type, file.c_str())))
+        if (R_FAILED(ret = ISO::GetInfo(&pos, &size, &size_pos, path, type, file.c_str()))) {
             return ret;
+        }
             
         *data = new u8[size];
         ISO::ReadFile(*data, path.c_str(), type, pos, size);
@@ -533,8 +562,9 @@ namespace GameLauncher {
         new_path.append(path);
         new_path.append(title);
         
-        if (!(FS::DirExists(new_path)))
+        if (!(FS::DirExists(new_path))) {
             FS::RecursiveMakeDir(new_path);
+        }
         
         new_path.append(ext); // "/icon0.png"
         FS::WriteFile(new_path, data, size);
@@ -550,23 +580,24 @@ namespace GameLauncher {
         }
 
         EbootMeta meta = { 0 };
-
-        std::string ext = FS::GetFileExt(path);
-
+        const char *ext = FS::GetFileExt(path.c_str());
 
         // ISO/CSO
-        if ((!ext.compare(".ISO")) || (!ext.compare(".CSO"))) {
-            if (R_FAILED(ret = GameLauncher::GetISOMeta(path, &meta)))
+        if ((strncasecmp(ext, "cso", 3) == 0) || (strncasecmp(ext, "iso", 3) == 0)) {
+            if (R_FAILED(ret = GameLauncher::GetISOMeta(path, &meta))) {
                 return ret;
+            }
         }
         else {
-            if (R_FAILED(ret = GameLauncher::GetEbootMeta(path, &meta)))
+            if (R_FAILED(ret = GameLauncher::GetEbootMeta(path, &meta))) {
                 return ret;
+            }
         }
 
         g2dTexture *icon0 = nullptr;
-        if (meta.icon0_data)
+        if (meta.icon0_data) {
             icon0 = Textures::LoadImageBufferPNG(meta.icon0_data, meta.icon0_size);
+        }
         
         char install_date[128] = {0};
         const char *months[] = { "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov" };
@@ -602,70 +633,86 @@ namespace GameLauncher {
 
             int ctrl = Utils::ReadControls();
             
-            if (ctrl & PSP_CTRL_LEFT)
+            if (ctrl & PSP_CTRL_LEFT) {
                 selection--;
-            else if (ctrl & PSP_CTRL_RIGHT)
+            }
+            else if (ctrl & PSP_CTRL_RIGHT) {
                 selection++;
+            }
 
             Utils::SetBounds(selection, 0, 4);
             
-            if (Utils::IsButtonPressed(PSP_CTRL_ENTER))
+            if (Utils::IsButtonPressed(PSP_CTRL_ENTER)) {
                 Utils::LaunchEboot(path.c_str());
+            }
             
             if (Utils::IsButtonPressed(PSP_CTRL_SQUARE)) {
                 switch(selection) {
                     case MetadataIcon0:
-                        if (meta.icon0_data)
+                        if (meta.icon0_data) {
                             GameLauncher::ExportData("/PSP/PHOTO/", meta.title, "/ICON0.PNG", meta.icon0_data, meta.icon0_size);
+                        }
                         break;
 
                     case MetadataIcon1:
-                        if (meta.icon1_data)
+                        if (meta.icon1_data) {
                             GameLauncher::ExportData("/PSP/PHOTO/", meta.title, "/ICON1.PMF", meta.icon1_data, meta.icon1_size);
+                        }
                         break;
 
                     case MetadataPic0:
-                        if (meta.pic0_data)
+                        if (meta.pic0_data) {
                             GameLauncher::ExportData("/PSP/PHOTO/", meta.title, "/PIC0.PNG", meta.pic0_data, meta.pic0_size);
+                        }
                         break;
 
                     case MetadataPic1:
-                        if (meta.pic1_data)
+                        if (meta.pic1_data) {
                             GameLauncher::ExportData("/PSP/PHOTO/", meta.title, "/PIC1.PNG", meta.pic1_data, meta.pic1_size);
+                        }
                         break;
 
                     case MetadataSnd0:
-                        if (meta.snd0_data)
+                        if (meta.snd0_data) {
                             GameLauncher::ExportData("/PSP/MUSIC/", meta.title, "/SND0.AT3", meta.snd0_data, meta.snd0_size);
+                        }
                         break;
                 }
                 
             }
 
-            if (Utils::IsButtonPressed(PSP_CTRL_CANCEL))
+            if (Utils::IsButtonPressed(PSP_CTRL_CANCEL)) {
                 break;
+            }
         }
         
-        if (icon0)
+        if (icon0) {
             g2dTexFree(&icon0);
+        }
             
-        if (meta.title)
+        if (meta.title) {
             delete[] meta.title;
+        }
             
-        if (meta.icon0_data)
+        if (meta.icon0_data) {
             delete[] meta.icon0_data;
+        }
 
-        if (meta.icon1_data)
+        if (meta.icon1_data) {
             delete[] meta.icon1_data;
+        }
 
-        if (meta.pic0_data)
+        if (meta.pic0_data) {
             delete[] meta.pic0_data;
+        }
 
-        if (meta.pic1_data)
+        if (meta.pic1_data) {
             delete[] meta.pic1_data;
+        }
 
-        if (meta.snd0_data)
+        if (meta.snd0_data) {
             delete[] meta.snd0_data;
+        }
 
         return 0;
     }

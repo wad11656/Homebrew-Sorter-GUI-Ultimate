@@ -278,18 +278,18 @@ namespace Textures {
         }
 
         g2dTexture *tex = nullptr;
-        std::string ext = FS::GetFileExt(path);
+        const char *ext = FS::GetFileExt(path.c_str());
 
-        if (ext == ".BMP") {
+        if (strncasecmp(ext, "bmp", 3) == 0) {
             tex = Textures::LoadImageBufferBMP(data, size);
         }
-        else if (ext == ".GIF") {
+        else if (strncasecmp(ext, "gif", 3) == 0) {
             tex = Textures::LoadImageBufferGIF(data, size);
         }
-        else if ((ext == ".JPEG") || (ext == ".JPG")) {
+        else if ((strncasecmp(ext, "jpeg", 4) == 0) || (strncasecmp(ext, "jpg", 3) == 0)) {
             tex = Textures::LoadImageBufferJPEG(data, size);
         }
-        else if (ext == ".PNG") {
+        else if (strncasecmp(ext, "png", 3) == 0) {
             tex = Textures::LoadImageBufferPNG(data, size);
         }
         
