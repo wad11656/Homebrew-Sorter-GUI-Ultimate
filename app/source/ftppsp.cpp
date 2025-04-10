@@ -10,7 +10,6 @@
 #include <pspiofilemgr.h>
 #include <pspnet_inet.h>
 #include <pspnet_apctl.h>
-#include <sys/time.h>
 #include <psprtc.h>
 #include <sys/syslimits.h>
 
