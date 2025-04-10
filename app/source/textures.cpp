@@ -59,59 +59,49 @@ g2dTexture *file_icons[NUM_FILE_ICONS], *icon_dir[NUM_THEMES], *icon_check[NUM_T
     *bg_header, *icon_sd[NUM_THEMES], *icon_secure[NUM_THEMES], *ic_play_btn, *ftp_icon[NUM_THEMES], *sort_icon[NUM_THEMES], \
     *dark_theme_icon[NUM_THEMES], *dev_options_icon[NUM_THEMES], *about_icon[NUM_THEMES];
 
-namespace BMP {
-    static void *bitmap_create(int width, int height, [[maybe_unused]] unsigned int state) {
+namespace Image {
+    static void *Create(int width, int height, [[maybe_unused]] unsigned int state) {
         /* ensure a stupidly large (>50Megs or so) bitmap is not created */
-        if ((static_cast<long long>(width) * static_cast<long long>(height)) > (MAX_IMAGE_BYTES/BYTES_PER_PIXEL))
+        if ((static_cast<long long>(width) * static_cast<long long>(height)) > (MAX_IMAGE_BYTES/BYTES_PER_PIXEL)) {
             return nullptr;
+        }
         
         return std::calloc(width * height, BYTES_PER_PIXEL);
     }
     
-    static unsigned char *bitmap_get_buffer(void *bitmap) {
-        assert(bitmap);
-        return static_cast<unsigned char *>(bitmap);
-    }
-    
-    static size_t bitmap_get_bpp([[maybe_unused]] void *bitmap) {
-        return BYTES_PER_PIXEL;
-    }
-    
-    static void bitmap_destroy(void *bitmap) {
-        assert(bitmap);
-        std::free(bitmap);
-    }
-}
-
-namespace GIF {
-    static void *bitmap_create(int width, int height) {
+    static void *Create(int width, int height) {
         /* ensure a stupidly large bitmap is not created */
-        if ((static_cast<long long>(width) * static_cast<long long>(height)) > (MAX_IMAGE_BYTES/BYTES_PER_PIXEL))
+        if ((static_cast<long long>(width) * static_cast<long long>(height)) > (MAX_IMAGE_BYTES/BYTES_PER_PIXEL)) {
             return nullptr;
+        }
         
         return std::calloc(width * height, BYTES_PER_PIXEL);
     }
 
-    static void bitmap_set_opaque([[maybe_unused]] void *bitmap, [[maybe_unused]] bool opaque) {
+    static void SetOpaque([[maybe_unused]] void *bitmap, [[maybe_unused]] bool opaque) {
         assert(bitmap);
     }
     
-    static bool bitmap_test_opaque([[maybe_unused]] void *bitmap) {
+    static bool TestOpaque([[maybe_unused]] void *bitmap) {
         assert(bitmap);
         return false;
     }
     
-    static unsigned char *bitmap_get_buffer(void *bitmap) {
+    static unsigned char *GetBuffer(void *bitmap) {
         assert(bitmap);
         return static_cast<unsigned char *>(bitmap);
     }
     
-    static void bitmap_destroy(void *bitmap) {
+    static void Destroy(void *bitmap) {
         assert(bitmap);
         std::free(bitmap);
     }
+
+    static size_t GetBPP([[maybe_unused]] void *bitmap) {
+        return BYTES_PER_PIXEL;
+    }
     
-    static void bitmap_modified([[maybe_unused]] void *bitmap) {
+    static void Modified([[maybe_unused]] void *bitmap) {
         assert(bitmap);
         return;
     }
@@ -120,10 +110,10 @@ namespace GIF {
 namespace Textures {
     static g2dTexture *LoadImageBufferBMP(unsigned char *data, int size) {
         bmp_bitmap_callback_vt bitmap_callbacks = {
-            BMP::bitmap_create,
-            BMP::bitmap_destroy,
-            BMP::bitmap_get_buffer,
-            BMP::bitmap_get_bpp
+            Image::Create,
+            Image::Destroy,
+            Image::GetBuffer,
+            Image::GetBPP
         };
         
         bmp_result code = BMP_OK;
@@ -160,12 +150,12 @@ namespace Textures {
 
     static g2dTexture *LoadImageBufferGIF(unsigned char *data, int size) {
         gif_bitmap_callback_vt bitmap_callbacks = {
-            GIF::bitmap_create,
-            GIF::bitmap_destroy,
-            GIF::bitmap_get_buffer,
-            GIF::bitmap_set_opaque,
-            GIF::bitmap_test_opaque,
-            GIF::bitmap_modified
+            Image::Create,
+            Image::Destroy,
+            Image::GetBuffer,
+            Image::SetOpaque,
+            Image::TestOpaque,
+            Image::Modified
         };
         
         gif_animation gif;
@@ -195,87 +185,114 @@ namespace Textures {
     g2dTexture *LoadImageBufferJPEG(unsigned char *data, int size) {
         struct jpeg_decompress_struct info;
         struct jpeg_error_mgr err;
-
+    
         info.err = jpeg_std_error(&err);
         jpeg_create_decompress(&info);
         jpeg_mem_src(&info, data, size);
-        jpeg_read_header(&info, TRUE);
-
+    
+        if (jpeg_read_header(&info, TRUE) != JPEG_HEADER_OK) {
+            Log::Error("%s(jpeg_read_header) failed\n", __func__);
+            jpeg_destroy_decompress(&info);
+            return nullptr;
+        }
+    
         info.out_color_space = JCS_EXT_RGBA;
         jpeg_start_decompress(&info);
-
-        u8 *buffer = new u8[info.output_width * info.output_height * 4];
-        int stride = info.output_width * 4;
         
+        if (info.output_width > 512 || info.output_height > 512) {
+            Log::Error("%s g2d does not support images greater than 512x512\n", __func__);
+            jpeg_destroy_decompress(&info);
+            return nullptr;
+        }
+    
+        int stride = info.output_width * 4;
+        u8 *buffer = static_cast<u8 *>(std::malloc(stride * info.output_height));
+        if (!buffer) {
+            Log::Error("%s failed to allocate buffer\n", __func__);
+            jpeg_destroy_decompress(&info);
+            return nullptr;
+        }
+    
         while (info.output_scanline < info.output_height) {
-            u8 *ptr = &buffer[stride * info.output_scanline];
+            u8 *ptr = buffer + stride * info.output_scanline;
             jpeg_read_scanlines(&info, &ptr, 1);
         }
-
-        jpeg_finish_decompress(&info);
+    
         g2dTexture *tex = g2dTexLoad(buffer, info.output_width, info.output_height, G2D_SWIZZLE);
+    
+        jpeg_finish_decompress(&info);
         jpeg_destroy_decompress(&info);
-        delete[] buffer;
+        std::free(buffer);
+    
         return tex;
-    }
+    }  
 
     g2dTexture *LoadImageBufferPNG(unsigned char *data, int size) {
         g2dTexture *tex = nullptr;
         png_image image;
-        std::memset(&image, 0, (sizeof image));
+        std::memset(&image, 0, sizeof(png_image));
         image.version = PNG_IMAGE_VERSION;
-        
-        if (png_image_begin_read_from_memory(&image, data, size) != 0) {
-            png_bytep buffer;
-            image.format = PNG_FORMAT_RGBA;
-            buffer = new png_byte[PNG_IMAGE_SIZE(image)];
-            
-            if (buffer != nullptr && png_image_finish_read(&image, nullptr, buffer, 0, nullptr) != 0) {
-                tex = g2dTexLoad(buffer, image.width, image.height, G2D_SWIZZLE);
-                delete[] buffer;
-                png_image_free(&image);
-            }
-            else {
-                if (buffer == nullptr) {
-                    Log::Error("png_byte buffer: returned nullptr\n");
-                    png_image_free(&image);
-                }
-                else {
-                    Log::Error("png_image_finish_read failed: %s\n", image.message);
-                    delete[] buffer;
-                }
-            }
+    
+        if (!png_image_begin_read_from_memory(&image, data, size)) {
+            Log::Error("%s(png_image_begin_read_from_memory) failed: %s\n", __func__, image.message);
+            return nullptr;
         }
-        else
-            Log::Error("png_image_begin_read_from_memory failed: %s\n", image.message);
-        
-        return tex;
-    }
+    
+        image.format = PNG_FORMAT_RGBA;
 
-    g2dTexture *LoadImage(const std::string &path) {
+        if (image.width > 512 || image.height > 512) {
+            Log::Error("%s g2d does not support images greater than 512x512\n", __func__);
+            png_image_free(&image);
+            return nullptr;
+        }
+    
+        const png_alloc_size_t imageSize = PNG_IMAGE_SIZE(image);
+        png_bytep buffer = static_cast<png_bytep>(std::malloc(imageSize));
+        if (!buffer) {
+            Log::Error("%s failed to allocate buffer\n", __func__);
+            png_image_free(&image);
+            return nullptr;
+        }
+    
+        if (png_image_finish_read(&image, nullptr, buffer, 0, nullptr)) {
+            tex = g2dTexLoad(buffer, image.width, image.height, G2D_SWIZZLE);
+        }
+        else {
+            Log::Error("%s(png_image_finish_read) failed: %s\n", __func__, image.message);
+        }
+    
+        std::free(buffer);
+        png_image_free(&image);
+        return tex;
+    }    
+
+    g2dTexture *LoadImage(const std::string &path, int size) {
         int ret = 0;
-        u64 size = FS::GetFileSize(path);
-        unsigned char *data = new unsigned char[size];
+        unsigned char *data = static_cast<unsigned char *>(std::malloc(size));
 
         if (R_FAILED(ret = FS::ReadFile(path, data, size))) {
-            Log::Error("LoadImage FS::ReadFile failed 0x%08x\n", ret);
-            delete[] data;
+            Log::Error("%s(FS::ReadFile) failed: 0x%08x\n", __func__, ret);
+            std::free(data);
             return nullptr;
         }
 
         g2dTexture *tex = nullptr;
         std::string ext = FS::GetFileExt(path);
 
-        if (ext == ".BMP")
+        if (ext == ".BMP") {
             tex = Textures::LoadImageBufferBMP(data, size);
-        else if (ext == ".GIF")
+        }
+        else if (ext == ".GIF") {
             tex = Textures::LoadImageBufferGIF(data, size);
-        else if ((ext == ".JPEG") || (ext == ".JPG"))
+        }
+        else if ((ext == ".JPEG") || (ext == ".JPG")) {
             tex = Textures::LoadImageBufferJPEG(data, size);
-        else if (ext == ".PNG")
+        }
+        else if (ext == ".PNG") {
             tex = Textures::LoadImageBufferPNG(data, size);
+        }
         
-        delete[] data;
+        std::free(data);
         return tex;
     }
 
@@ -391,8 +408,9 @@ namespace Textures {
             g2dTexFree(&icon_dir[i]);
         }
         
-        for (int i = 0; i < NUM_FILE_ICONS; i++)
+        for (int i = 0; i < NUM_FILE_ICONS; i++) {
             g2dTexFree(&file_icons[i]);
+        }
             
         for (int i = 0; i < NUM_BATT_ICONS; i++) {
             g2dTexFree(&battery_charging[i]);

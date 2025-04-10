@@ -131,7 +131,7 @@ namespace GUI {
                         break;
                     
                     case FileTypeImage:
-                        item.texture = Textures::LoadImage(path.c_str());
+                        item.texture = Textures::LoadImage(path.c_str(), item.entries[item.selected].d_stat.st_size);
                         if (item.texture)
                             item.state = MENU_STATE_IMAGEVIEWER;
                         break;
