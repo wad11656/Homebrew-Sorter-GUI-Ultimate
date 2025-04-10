@@ -6,7 +6,7 @@
 
 #include "fs.h"
 #include "libnsbmp.h"
-#include "libnsgif.h"
+#include "nsgif.h"
 #include "log.h"
 #include "textures.h"
 #include "utils.h"
@@ -59,10 +59,9 @@ g2dTexture *file_icons[NUM_FILE_ICONS], *icon_dir[NUM_THEMES], *icon_check[NUM_T
     *bg_header, *icon_sd[NUM_THEMES], *icon_secure[NUM_THEMES], *ic_play_btn, *ftp_icon[NUM_THEMES], *sort_icon[NUM_THEMES], \
     *dark_theme_icon[NUM_THEMES], *dev_options_icon[NUM_THEMES], *about_icon[NUM_THEMES];
 
-namespace Image {
+namespace Bitmap {
     static void *Create(int width, int height, [[maybe_unused]] unsigned int state) {
-        /* ensure a stupidly large (>50Megs or so) bitmap is not created */
-        if ((static_cast<long long>(width) * static_cast<long long>(height)) > (MAX_IMAGE_BYTES/BYTES_PER_PIXEL)) {
+        if (width > 512 && height > 512) {
             return nullptr;
         }
         
@@ -70,50 +69,33 @@ namespace Image {
     }
     
     static void *Create(int width, int height) {
-        /* ensure a stupidly large bitmap is not created */
-        if ((static_cast<long long>(width) * static_cast<long long>(height)) > (MAX_IMAGE_BYTES/BYTES_PER_PIXEL)) {
+        if (width > 512 && height > 512) {
             return nullptr;
         }
         
         return std::calloc(width * height, BYTES_PER_PIXEL);
     }
-
-    static void SetOpaque([[maybe_unused]] void *bitmap, [[maybe_unused]] bool opaque) {
-        assert(bitmap);
-    }
-    
-    static bool TestOpaque([[maybe_unused]] void *bitmap) {
-        assert(bitmap);
-        return false;
-    }
     
     static unsigned char *GetBuffer(void *bitmap) {
-        assert(bitmap);
         return static_cast<unsigned char *>(bitmap);
     }
     
     static void Destroy(void *bitmap) {
-        assert(bitmap);
         std::free(bitmap);
-    }
-    
-    static void Modified([[maybe_unused]] void *bitmap) {
-        assert(bitmap);
-        return;
     }
 }
 
 namespace Textures {
     static g2dTexture *LoadImageBufferBMP(unsigned char *data, int size) {
-        bmp_bitmap_callback_vt bitmap_callbacks = {
-            Image::Create,
-            Image::Destroy,
-            Image::GetBuffer
+        bmp_bitmap_callback_vt callbacks = {
+            .bitmap_create     = Bitmap::Create,
+            .bitmap_destroy    = Bitmap::Destroy,
+            .bitmap_get_buffer = Bitmap::GetBuffer,
         };
         
         bmp_result code = BMP_OK;
         bmp_image bmp;
-        bmp_create(&bmp, &bitmap_callbacks);
+        bmp_create(&bmp, &callbacks);
             
         code = bmp_analyse(&bmp, size, data);
         if (code != BMP_OK) {
@@ -132,7 +114,6 @@ namespace Textures {
             
             /* skip if the decoded image would be ridiculously large */
             if ((bmp.width * bmp.height) > 200000) {
-                Log::Error("bmp_decode failed: width*height is over 200000\n");
                 Log::Error("%s(bmp_decode) failed: width*height is over 200000\n", __func__);
                 bmp_finalise(&bmp);
                 return nullptr;
@@ -145,36 +126,37 @@ namespace Textures {
     }
 
     static g2dTexture *LoadImageBufferGIF(unsigned char *data, int size) {
-        gif_bitmap_callback_vt bitmap_callbacks = {
-            Image::Create,
-            Image::Destroy,
-            Image::GetBuffer,
-            Image::SetOpaque,
-            Image::TestOpaque,
-            Image::Modified
+        const nsgif_bitmap_cb_vt callbacks = {
+            .create     = Bitmap::Create,
+            .destroy    = Bitmap::Destroy,
+            .get_buffer = Bitmap::GetBuffer,
         };
-        
-        gif_animation gif;
-        gif_result code = GIF_OK;
-        gif_create(&gif, &bitmap_callbacks);
-            
-        do {
-            code = gif_initialise(&gif, size, data);
-            if (code != GIF_OK && code != GIF_WORKING) {
-                Log::Error("%s(gif_initialise) failed: %d\n", __func__, code);
-                gif_finalise(&gif);
-                return nullptr;
-            }
-        } while (code != GIF_OK);
-        
-        code = gif_decode_frame(&gif, 0);
-        if (code != GIF_OK) {
-            Log::Error("%s(gif_decode_frame) failed: %d\n", __func__, code);
+    
+        nsgif_t *gif;
+        nsgif_error err = nsgif_create(&callbacks, NSGIF_BITMAP_FMT_ABGR8888, &gif);
+        if (err != NSGIF_OK) {
+            Log::Error("%s(nsgif_create) failed: %d\n", __func__, err);
             return nullptr;
         }
-        
-        g2dTexture *tex = g2dTexLoad(static_cast<unsigned char *>(gif.frame_image), gif.width, gif.height, G2D_SWIZZLE);
-        gif_finalise(&gif);
+    
+        err = nsgif_data_scan(gif, size, data);
+        if (err != NSGIF_OK) {
+            Log::Error("%s(nsgif_data_scan) failed: %d\n", __func__, err);
+            nsgif_destroy(gif);
+            return nullptr;
+        }
+
+        nsgif_bitmap_t *bitmap;
+        const nsgif_info_t *info = nsgif_get_info(gif);
+        err = nsgif_frame_decode(gif, 0, &bitmap);
+        if (err != NSGIF_OK) {
+            Log::Error("%s(nsgif_frame_decode) failed: %d\n", __func__, err);
+            nsgif_destroy(gif);
+            return nullptr;
+        }
+    
+        g2dTexture *tex = g2dTexLoad(static_cast<u8 *>(bitmap), info->width, info->height, G2D_SWIZZLE);
+        nsgif_destroy(gif);
         return tex;
     }
 
