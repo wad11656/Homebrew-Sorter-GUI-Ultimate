@@ -122,7 +122,7 @@ namespace Textures {
             
         code = bmp_analyse(&bmp, size, data);
         if (code != BMP_OK) {
-            Log::Error("bmp_analyse failed: %d\n", code);
+            Log::Error("%s(bmp_analyse) failed: %d\n", __func__, code);
             bmp_finalise(&bmp);
             return nullptr;
         }
@@ -130,7 +130,7 @@ namespace Textures {
         code = bmp_decode(&bmp);
         if (code != BMP_OK) {
             if ((code != BMP_INSUFFICIENT_DATA) && (code != BMP_DATA_ERROR)) {
-                Log::Error("bmp_decode failed: %d\n", code);
+                Log::Error("%s(bmp_decode) failed: %d\n", __func__, code);
                 bmp_finalise(&bmp);
                 return nullptr;
             }
@@ -138,6 +138,7 @@ namespace Textures {
             /* skip if the decoded image would be ridiculously large */
             if ((bmp.width * bmp.height) > 200000) {
                 Log::Error("bmp_decode failed: width*height is over 200000\n");
+                Log::Error("%s(bmp_decode) failed: width*height is over 200000\n", __func__);
                 bmp_finalise(&bmp);
                 return nullptr;
             }
@@ -165,7 +166,7 @@ namespace Textures {
         do {
             code = gif_initialise(&gif, size, data);
             if (code != GIF_OK && code != GIF_WORKING) {
-                Log::Error("gif_initialise failed: %d\n", code);
+                Log::Error("%s(gif_initialise) failed: %d\n", __func__, code);
                 gif_finalise(&gif);
                 return nullptr;
             }
@@ -173,7 +174,7 @@ namespace Textures {
         
         code = gif_decode_frame(&gif, 0);
         if (code != GIF_OK) {
-            Log::Error("gif_decode_frame failed: %d\n", code);
+            Log::Error("%s(gif_decode_frame) failed: %d\n", __func__, code);
             return nullptr;
         }
         
@@ -225,7 +226,7 @@ namespace Textures {
         std::free(buffer);
     
         return tex;
-    }  
+    }
 
     g2dTexture *LoadImageBufferPNG(unsigned char *data, int size) {
         g2dTexture *tex = nullptr;
@@ -264,7 +265,7 @@ namespace Textures {
         std::free(buffer);
         png_image_free(&image);
         return tex;
-    }    
+    }
 
     g2dTexture *LoadImage(const std::string &path, int size) {
         int ret = 0;
