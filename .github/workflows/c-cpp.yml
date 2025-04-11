@@ -2,9 +2,9 @@ name: C/C++ CI
 
 on:
   push:
-    branches: [ next, module ]
+    branches: [ next ]
   pull_request:
-    branches: [ next, module ]
+    branches: [ next ]
 
 jobs:
   build:
