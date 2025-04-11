@@ -9,8 +9,8 @@ PSP_EXPORT_FUNC(module_stop)
 PSP_EXPORT_VAR(module_info)
 PSP_EXPORT_END
 
-PSP_EXPORT_START(module_driver, 0, 0x4001)
-PSP_EXPORT_FUNC(pspKernelLoadModuleBuffer)
+PSP_EXPORT_START(audio_driver, 0, 0x4001)
+PSP_EXPORT_FUNC(pspAudioSetFrequency)
 PSP_EXPORT_END
 
 PSP_END_EXPORTS

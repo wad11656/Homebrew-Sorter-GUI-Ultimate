@@ -6,12 +6,11 @@ extern "C" {
 
 #include <pspctrl.h>
 #include <pspiofilemgr.h>
-#include <pspmodulemgr.h>
 
 // Kernel function prototypes
 
 // audio_driver functions
-int pspAudioSetFrequency(int frequency);
+extern int pspAudioSetFrequency(int frequency);
 
 // display_driver functions
 extern int pspDisplayEnable(void);
@@ -33,9 +32,6 @@ extern int pspIoGetstat(const char *file, SceIoStat *stat);
 extern int pspIoRename(const char *oldname, const char *newname);
 extern int pspIoRemoveFile(const char *file);
 extern int pspIoDevctl(const char *dev, unsigned int cmd, void *indata, int inlen, void *outdata, int outlen);
-
-// module_driver functions
-extern int pspKernelLoadModuleBuffer(SceSize size, void *buf, s32 flag, const SceKernelLMOption *option);
 
 #if defined (__cplusplus)
 }

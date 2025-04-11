@@ -1,12 +1,12 @@
 #include <assert.h>
 #include <cstdio>
 #include <cstring>
-#include <jpeglib.h>
+#include <png.h>
+#include <turbojpeg.h>
 
 #include "fs.h"
 #include "libnsbmp.h"
-#include "libnsgif.h"
-#include "libpng/png.h"
+#include "nsgif.h"
 #include "log.h"
 #include "textures.h"
 #include "utils.h"
@@ -59,80 +59,47 @@ g2dTexture *file_icons[NUM_FILE_ICONS], *icon_dir[NUM_THEMES], *icon_check[NUM_T
     *bg_header, *icon_sd[NUM_THEMES], *icon_secure[NUM_THEMES], *ic_play_btn, *ftp_icon[NUM_THEMES], *sort_icon[NUM_THEMES], \
     *dark_theme_icon[NUM_THEMES], *dev_options_icon[NUM_THEMES], *about_icon[NUM_THEMES];
 
-namespace BMP {
-    static void *bitmap_create(int width, int height, [[maybe_unused]] unsigned int state) {
-        /* ensure a stupidly large (>50Megs or so) bitmap is not created */
-        if ((static_cast<long long>(width) * static_cast<long long>(height)) > (MAX_IMAGE_BYTES/BYTES_PER_PIXEL))
+namespace Bitmap {
+    static void *Create(int width, int height, [[maybe_unused]] unsigned int state) {
+        if (width > 512 && height > 512) {
             return nullptr;
+        }
         
         return std::calloc(width * height, BYTES_PER_PIXEL);
     }
     
-    static unsigned char *bitmap_get_buffer(void *bitmap) {
-        assert(bitmap);
-        return static_cast<unsigned char *>(bitmap);
-    }
-    
-    static size_t bitmap_get_bpp([[maybe_unused]] void *bitmap) {
-        return BYTES_PER_PIXEL;
-    }
-    
-    static void bitmap_destroy(void *bitmap) {
-        assert(bitmap);
-        std::free(bitmap);
-    }
-}
-
-namespace GIF {
-    static void *bitmap_create(int width, int height) {
-        /* ensure a stupidly large bitmap is not created */
-        if ((static_cast<long long>(width) * static_cast<long long>(height)) > (MAX_IMAGE_BYTES/BYTES_PER_PIXEL))
+    static void *Create(int width, int height) {
+        if (width > 512 && height > 512) {
             return nullptr;
+        }
         
         return std::calloc(width * height, BYTES_PER_PIXEL);
     }
-
-    static void bitmap_set_opaque([[maybe_unused]] void *bitmap, [[maybe_unused]] bool opaque) {
-        assert(bitmap);
-    }
     
-    static bool bitmap_test_opaque([[maybe_unused]] void *bitmap) {
-        assert(bitmap);
-        return false;
-    }
-    
-    static unsigned char *bitmap_get_buffer(void *bitmap) {
-        assert(bitmap);
+    static unsigned char *GetBuffer(void *bitmap) {
         return static_cast<unsigned char *>(bitmap);
     }
     
-    static void bitmap_destroy(void *bitmap) {
-        assert(bitmap);
+    static void Destroy(void *bitmap) {
         std::free(bitmap);
-    }
-    
-    static void bitmap_modified([[maybe_unused]] void *bitmap) {
-        assert(bitmap);
-        return;
     }
 }
 
 namespace Textures {
     static g2dTexture *LoadImageBufferBMP(unsigned char *data, int size) {
-        bmp_bitmap_callback_vt bitmap_callbacks = {
-            BMP::bitmap_create,
-            BMP::bitmap_destroy,
-            BMP::bitmap_get_buffer,
-            BMP::bitmap_get_bpp
+        bmp_bitmap_callback_vt callbacks = {
+            .bitmap_create     = Bitmap::Create,
+            .bitmap_destroy    = Bitmap::Destroy,
+            .bitmap_get_buffer = Bitmap::GetBuffer,
         };
         
         bmp_result code = BMP_OK;
         bmp_image bmp;
-        bmp_create(&bmp, &bitmap_callbacks);
+        bmp_create(&bmp, &callbacks);
             
         code = bmp_analyse(&bmp, size, data);
         if (code != BMP_OK) {
-            Log::Error("bmp_analyse failed: %d\n", code);
+            Log::Error("%s(bmp_analyse) failed: %d\n", __func__, code);
             bmp_finalise(&bmp);
             return nullptr;
         }
@@ -140,14 +107,14 @@ namespace Textures {
         code = bmp_decode(&bmp);
         if (code != BMP_OK) {
             if ((code != BMP_INSUFFICIENT_DATA) && (code != BMP_DATA_ERROR)) {
-                Log::Error("bmp_decode failed: %d\n", code);
+                Log::Error("%s(bmp_decode) failed: %d\n", __func__, code);
                 bmp_finalise(&bmp);
                 return nullptr;
             }
             
             /* skip if the decoded image would be ridiculously large */
             if ((bmp.width * bmp.height) > 200000) {
-                Log::Error("bmp_decode failed: width*height is over 200000\n");
+                Log::Error("%s(bmp_decode) failed: width*height is over 200000\n", __func__);
                 bmp_finalise(&bmp);
                 return nullptr;
             }
@@ -159,123 +126,147 @@ namespace Textures {
     }
 
     static g2dTexture *LoadImageBufferGIF(unsigned char *data, int size) {
-        gif_bitmap_callback_vt bitmap_callbacks = {
-            GIF::bitmap_create,
-            GIF::bitmap_destroy,
-            GIF::bitmap_get_buffer,
-            GIF::bitmap_set_opaque,
-            GIF::bitmap_test_opaque,
-            GIF::bitmap_modified
+        const nsgif_bitmap_cb_vt callbacks = {
+            .create     = Bitmap::Create,
+            .destroy    = Bitmap::Destroy,
+            .get_buffer = Bitmap::GetBuffer,
         };
-        
-        gif_animation gif;
-        gif_result code = GIF_OK;
-        gif_create(&gif, &bitmap_callbacks);
-            
-        do {
-            code = gif_initialise(&gif, size, data);
-            if (code != GIF_OK && code != GIF_WORKING) {
-                Log::Error("gif_initialise failed: %d\n", code);
-                gif_finalise(&gif);
-                return nullptr;
-            }
-        } while (code != GIF_OK);
-        
-        code = gif_decode_frame(&gif, 0);
-        if (code != GIF_OK) {
-            Log::Error("gif_decode_frame failed: %d\n", code);
+    
+        nsgif_t *gif;
+        nsgif_error err = nsgif_create(&callbacks, NSGIF_BITMAP_FMT_ABGR8888, &gif);
+        if (err != NSGIF_OK) {
+            Log::Error("%s(nsgif_create) failed: %d\n", __func__, err);
             return nullptr;
         }
-        
-        g2dTexture *tex = g2dTexLoad(static_cast<unsigned char *>(gif.frame_image), gif.width, gif.height, G2D_SWIZZLE);
-        gif_finalise(&gif);
+    
+        err = nsgif_data_scan(gif, size, data);
+        if (err != NSGIF_OK) {
+            Log::Error("%s(nsgif_data_scan) failed: %d\n", __func__, err);
+            nsgif_destroy(gif);
+            return nullptr;
+        }
+
+        nsgif_bitmap_t *bitmap;
+        const nsgif_info_t *info = nsgif_get_info(gif);
+        err = nsgif_frame_decode(gif, 0, &bitmap);
+        if (err != NSGIF_OK) {
+            Log::Error("%s(nsgif_frame_decode) failed: %d\n", __func__, err);
+            nsgif_destroy(gif);
+            return nullptr;
+        }
+    
+        g2dTexture *tex = g2dTexLoad(static_cast<u8 *>(bitmap), info->width, info->height, G2D_SWIZZLE);
+        nsgif_destroy(gif);
         return tex;
     }
 
     g2dTexture *LoadImageBufferJPEG(unsigned char *data, int size) {
-        struct jpeg_decompress_struct info;
-        struct jpeg_error_mgr err;
-
-        info.err = jpeg_std_error(&err);
-        jpeg_create_decompress(&info);
-        jpeg_mem_src(&info, data, size);
-        jpeg_read_header(&info, TRUE);
-
-        info.out_color_space = JCS_EXT_RGBA;
-        jpeg_start_decompress(&info);
-
-        u8 *buffer = new u8[info.output_width * info.output_height * 4];
-        int stride = info.output_width * 4;
-        
-        while (info.output_scanline < info.output_height) {
-            u8 *ptr = &buffer[stride * info.output_scanline];
-            jpeg_read_scanlines(&info, &ptr, 1);
+        tjhandle tj = tjInitDecompress();
+        if (!tj) {
+            Log::Error("%s(tjInitDecompress) failed: %s\n", __func__, tjGetErrorStr());
+            return nullptr;
         }
-
-        jpeg_finish_decompress(&info);
-        g2dTexture *tex = g2dTexLoad(buffer, info.output_width, info.output_height, G2D_SWIZZLE);
-        jpeg_destroy_decompress(&info);
-        delete[] buffer;
+    
+        int width = 0, height = 0, jpegSubsamp = 0;
+        if (tjDecompressHeader2(tj, data, size, &width, &height, &jpegSubsamp) != 0) {
+            Log::Error("%s(tjDecompressHeader2) failed: %s\n", __func__, tjGetErrorStr());
+            tjDestroy(tj);
+            return nullptr;
+        }
+    
+        if (width > 512 || height > 512) {
+            Log::Error("%s g2d does not support images greater than 512x512\n", __func__);
+            tjDestroy(tj);
+            return nullptr;
+        }
+    
+        int stride = width * 4;
+        u8 *buffer = static_cast<u8 *>(std::malloc(stride * height));
+        if (!buffer) {
+            Log::Error("%s failed to allocate buffer\n", __func__);
+            tjDestroy(tj);
+            return nullptr;
+        }
+    
+        if (tjDecompress2(tj, data, size, buffer, width, stride, height, TJPF_RGBA, TJFLAG_FASTDCT) != 0) {
+            Log::Error("%s(tjDecompress2) failed: %s\n", __func__, tjGetErrorStr());
+            std::free(buffer);
+            tjDestroy(tj);
+            return nullptr;
+        }
+    
+        g2dTexture *tex = g2dTexLoad(buffer, width, height, G2D_SWIZZLE);
+        std::free(buffer);
+        tjDestroy(tj);
         return tex;
     }
 
     g2dTexture *LoadImageBufferPNG(unsigned char *data, int size) {
         g2dTexture *tex = nullptr;
         png_image image;
-        std::memset(&image, 0, (sizeof image));
+        std::memset(&image, 0, sizeof(png_image));
         image.version = PNG_IMAGE_VERSION;
-        
-        if (png_image_begin_read_from_memory(&image, data, size) != 0) {
-            png_bytep buffer;
-            image.format = PNG_FORMAT_RGBA;
-            buffer = new png_byte[PNG_IMAGE_SIZE(image)];
-            
-            if (buffer != nullptr && png_image_finish_read(&image, nullptr, buffer, 0, nullptr) != 0) {
-                tex = g2dTexLoad(buffer, image.width, image.height, G2D_SWIZZLE);
-                delete[] buffer;
-                png_image_free(&image);
-            }
-            else {
-                if (buffer == nullptr) {
-                    Log::Error("png_byte buffer: returned nullptr\n");
-                    png_image_free(&image);
-                }
-                else {
-                    Log::Error("png_image_finish_read failed: %s\n", image.message);
-                    delete[] buffer;
-                }
-            }
+    
+        if (!png_image_begin_read_from_memory(&image, data, size)) {
+            Log::Error("%s(png_image_begin_read_from_memory) failed: %s\n", __func__, image.message);
+            return nullptr;
         }
-        else
-            Log::Error("png_image_begin_read_from_memory failed: %s\n", image.message);
-        
+    
+        image.format = PNG_FORMAT_RGBA;
+
+        if (image.width > 512 || image.height > 512) {
+            Log::Error("%s g2d does not support images greater than 512x512\n", __func__);
+            png_image_free(&image);
+            return nullptr;
+        }
+    
+        const png_alloc_size_t imageSize = PNG_IMAGE_SIZE(image);
+        png_bytep buffer = static_cast<png_bytep>(std::malloc(imageSize));
+        if (!buffer) {
+            Log::Error("%s failed to allocate buffer\n", __func__);
+            png_image_free(&image);
+            return nullptr;
+        }
+    
+        if (png_image_finish_read(&image, nullptr, buffer, 0, nullptr)) {
+            tex = g2dTexLoad(buffer, image.width, image.height, G2D_SWIZZLE);
+        }
+        else {
+            Log::Error("%s(png_image_finish_read) failed: %s\n", __func__, image.message);
+        }
+    
+        std::free(buffer);
+        png_image_free(&image);
         return tex;
     }
 
-    g2dTexture *LoadImage(const std::string &path) {
+    g2dTexture *LoadImage(const std::string &path, int size) {
         int ret = 0;
-        u64 size = FS::GetFileSize(path);
-        unsigned char *data = new unsigned char[size];
+        unsigned char *data = static_cast<unsigned char *>(std::malloc(size));
 
         if (R_FAILED(ret = FS::ReadFile(path, data, size))) {
-            Log::Error("LoadImage FS::ReadFile failed 0x%08x\n", ret);
-            delete[] data;
+            Log::Error("%s(FS::ReadFile) failed: 0x%08x\n", __func__, ret);
+            std::free(data);
             return nullptr;
         }
 
         g2dTexture *tex = nullptr;
-        std::string ext = FS::GetFileExt(path);
+        const char *ext = FS::GetFileExt(path.c_str());
 
-        if (ext == ".BMP")
+        if (strncasecmp(ext, "bmp", 3) == 0) {
             tex = Textures::LoadImageBufferBMP(data, size);
-        else if (ext == ".GIF")
+        }
+        else if (strncasecmp(ext, "gif", 3) == 0) {
             tex = Textures::LoadImageBufferGIF(data, size);
-        else if ((ext == ".JPEG") || (ext == ".JPG"))
+        }
+        else if ((strncasecmp(ext, "jpeg", 4) == 0) || (strncasecmp(ext, "jpg", 3) == 0)) {
             tex = Textures::LoadImageBufferJPEG(data, size);
-        else if (ext == ".PNG")
+        }
+        else if (strncasecmp(ext, "png", 3) == 0) {
             tex = Textures::LoadImageBufferPNG(data, size);
+        }
         
-        delete[] data;
+        std::free(data);
         return tex;
     }
 
@@ -391,8 +382,9 @@ namespace Textures {
             g2dTexFree(&icon_dir[i]);
         }
         
-        for (int i = 0; i < NUM_FILE_ICONS; i++)
+        for (int i = 0; i < NUM_FILE_ICONS; i++) {
             g2dTexFree(&file_icons[i]);
+        }
             
         for (int i = 0; i < NUM_BATT_ICONS; i++) {
             g2dTexFree(&battery_charging[i]);

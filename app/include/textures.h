@@ -19,7 +19,7 @@ extern g2dTexture *file_icons[NUM_FILE_ICONS], *icon_dir[NUM_THEMES], *icon_chec
 namespace Textures {
     g2dTexture *LoadImageBufferJPEG(unsigned char *data, int size);
     g2dTexture *LoadImageBufferPNG(unsigned char *data, int size);
-    g2dTexture *LoadImage(const std::string &path);
+    g2dTexture *LoadImage(const std::string &path, int size);
     void Load(void);
     void Free(void);
 }

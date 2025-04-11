@@ -1,5 +1,5 @@
-TARGET = module_driver
-OBJS = module_driver.o exports.o ModuleMgrForKernel.o
+TARGET = audio_driver
+OBJS = audio_driver.o exports.o
 
 PRX_EXPORTS = exports.exp
 
@@ -13,11 +13,11 @@ CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
 ASFLAGS = $(CFLAGS)
 
 LDFLAGS = -nostartfiles
+LIBS = -lpspaudio_driver
 
 PSPSDK=$(shell psp-config --pspsdk-path)
 include $(PSPSDK)/lib/build_prx.mak
 
 all:
 	psp-build-exports -s $(PRX_EXPORTS)
-	mv module_driver.S "../app/drivers/"
-	mv module_driver.prx "../app/data/"
+	mv audio_driver.S "../app/drivers/"

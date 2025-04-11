@@ -1,5 +1,4 @@
 #include <psppower.h>
-#include <sys/time.h>
 #include <psprtc.h>
 
 #include "colours.h"

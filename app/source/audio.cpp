@@ -1,6 +1,6 @@
 #include <pspaudio.h>
 #include <pspthreadman.h>
-#include <string.h>
+#include <cstring>
 
 #include "fs.h"
 #include "kernel_functions.h"
@@ -37,32 +37,37 @@ namespace Audio {
     
     static void Decode(void *buf, unsigned int length, void *userdata) {
         if ((!playing) || (paused)) {
-            s16 *buf_s16 = static_cast<s16 *>(buf);
-            for (unsigned int count = 0; count < length * 4; count++)
-                *(buf_s16 + count) = 0;
+            std::memset(buf, 0, length * 4);
         } 
-        else
-            (* decoder.decode)(buf, length, userdata);
+        else {
+            (*decoder.decode)(buf, length, userdata);
+        }
     }
     
     void Init(const std::string &path) {
         playing = true;
         paused = false;
+        const char *ext = FS::GetFileExt(path.c_str());
 
-        std::string ext = FS::GetFileExt(path);
-
-        if (!ext.compare(".FLAC"))
+        if (strncasecmp(ext, "flac", 4) == 0) {
             file_type = FILE_TYPE_FLAC;
-        else if (!ext.compare(".MP3"))
+        }
+        else if (strncasecmp(ext, "mp3", 3) == 0) {
             file_type = FILE_TYPE_MP3;
-        else if (!ext.compare(".OGG"))
+        }
+        else if (strncasecmp(ext, "ogg", 3) == 0) {
             file_type = FILE_TYPE_OGG;
-        else if (!ext.compare(".OPUS"))
+        }
+        else if (strncasecmp(ext, "opus", 4) == 0) {
             file_type = FILE_TYPE_OPUS;
-        else if (!ext.compare(".WAV"))
+        }
+        else if (strncasecmp(ext, "wav", 3) == 0) {
             file_type = FILE_TYPE_WAV;
-        else if ((!ext.compare(".IT")) || (!ext.compare(".MOD")) || (!ext.compare(".S3M")) || (!ext.compare(".XM")))
+        }
+        else if ((strncasecmp(ext, "it", 2) == 0) || (strncasecmp(ext, "mod", 3) == 0) || (strncasecmp(ext, "s3m", 3) == 0)
+            || (strncasecmp(ext, "xm", 2) == 0)) {
             file_type = FILE_TYPE_XM;
+        }
             
         switch(file_type) {
             case FILE_TYPE_FLAC:
@@ -184,9 +189,8 @@ namespace Audio {
         (* decoder.term)();
         
         // Clear metadata struct
-        if (metadata.has_meta) {
-            if (metadata.cover_image)
-                g2dTexFree(&metadata.cover_image);
+        if (metadata.has_meta && metadata.cover_image) {
+            g2dTexFree(&metadata.cover_image);
         }
         
         metadata = { 0 };

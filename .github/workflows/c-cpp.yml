@@ -19,8 +19,16 @@ jobs:
     
     - name: Compile project
       run: make
-    
+
+    - name: Prepare artifact folder
+      run: |
+        mkdir -p CMFileManagerPSP
+        cp audio_driver/audio_driver.prx CMFileManagerPSP/
+        cp display_driver/display_driver.prx CMFileManagerPSP/
+        cp fs_driver/fs_driver.prx CMFileManagerPSP/
+        cp app/EBOOT.PBP CMFileManagerPSP/
+
     - uses: actions/upload-artifact@v4
       with:
-        name: CMFileManager-PSP
-        path: app/EBOOT.PBP
+        name: CMFileManagerPSP
+        path: CMFileManagerPSP/
