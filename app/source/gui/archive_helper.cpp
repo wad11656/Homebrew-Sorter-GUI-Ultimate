@@ -13,10 +13,6 @@
 #include "textures.h"
 #include "utils.h"
 
-int chmod(const char *pathname, mode_t mode) {
-    return 0;
-}
-
 namespace ArchiveHelper {
     u64 CountFiles(const std::string &path) {
         int ret = 0;
