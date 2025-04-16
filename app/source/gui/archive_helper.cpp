@@ -29,9 +29,6 @@ namespace ArchiveHelper {
 
         struct archive_entry *entry;
         while((ret = archive_read_next_header(arch, &entry)) == ARCHIVE_OK) {
-            if (ret == ARCHIVE_EOF)
-                break;
-
             count++;
         }
         
@@ -48,14 +45,18 @@ namespace ArchiveHelper {
         
         for (;;) {
             ret = archive_read_data_block(src, &buff, &size, &offset);
-            if (ret == ARCHIVE_EOF)
+            if (ret == ARCHIVE_EOF) {
                 return ARCHIVE_OK;
-            if (ret != ARCHIVE_OK)
+            }
+
+            if (ret != ARCHIVE_OK) {
                 return ret;
+            }
                 
             ret = archive_write_data_block(dest, buff, size, offset);
-            if (ret != ARCHIVE_OK)
+            if (ret != ARCHIVE_OK) {
                 return ret;
+            }
         }
 
         return 0;
@@ -106,8 +107,9 @@ namespace ArchiveHelper {
             }
 
             ret = archive_read_next_header(arch, &entry);
-            if (ret == ARCHIVE_EOF)
+            if (ret == ARCHIVE_EOF) {
                 break;
+            }
                 
             if (ret != ARCHIVE_OK) {
                 Log::Error("archive_read_next_header(%s) failed: %s\n", path.c_str(), archive_error_string(arch));
