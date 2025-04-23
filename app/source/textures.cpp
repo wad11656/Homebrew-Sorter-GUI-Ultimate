@@ -8,6 +8,25 @@
 #include "libnsbmp.h"
 #include "nsgif.h"
 #include "log.h"
+
+// STB
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_NO_STDIO
+#define STBI_NO_BMP
+#define STBI_NO_GIF
+#define STBI_NO_HDR
+#define STBI_NO_JPEG
+#define STBI_NO_PIC
+#define STBI_NO_PNG
+#define STBI_ONLY_PNM
+#define STBI_ONLY_PSD
+#define STBI_ONLY_TGA
+#include "stb_image.h"
+
+// TIFF
+#include "tiffio.h"
+#include "tiffiop.h"
+
 #include "textures.h"
 #include "utils.h"
 
@@ -240,30 +259,99 @@ namespace Textures {
         return tex;
     }
 
+    static g2dTexture *LoadImageBuffer(const unsigned char *data, int size) {
+        int width = 0, height = 0, channels = 0;
+        g2dTexture *tex = nullptr;
+        
+        unsigned char *img = stbi_load_from_memory(data, size, &width, &height, &channels, STBI_rgb_alpha);
+        
+        if (!img) {
+            Log::Error("%s(stbi_load_from_memory) failed: %s\n", __func__, stbi_failure_reason());
+            return nullptr;
+        }
+        
+        if (width > 512 || height > 512) {
+            Log::Error("%s g2d does not support images greater than 512x512\n", __func__);
+            stbi_image_free(img);
+            return nullptr;
+        }
+        
+        tex = g2dTexLoad(img, width, height, G2D_SWIZZLE);
+        stbi_image_free(img);
+        return tex;
+    }
+
+    static g2dTexture *LoadImageTIFF(const std::string &path) {
+        TIFF *tif = TIFFOpen(path.c_str(), "r");
+        g2dTexture *tex = nullptr;
+
+        if (tif) {
+            std::size_t pixelCount = 0;
+            u32 *raster = nullptr;
+            int width = 0, height = 0;
+            
+            TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &width);
+            TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &height);
+            pixelCount = width * height;
+            
+            raster = (u32 *)_TIFFCheckMalloc(tif, pixelCount, sizeof(u32), "raster buffer");
+            if (raster != nullptr) {
+                if (TIFFReadRGBAImageOriented(tif, width, height, raster, ORIENTATION_TOPLEFT)) {
+                    tex = g2dTexLoad(reinterpret_cast<unsigned char*>(raster), width, height, G2D_SWIZZLE);
+                    _TIFFfree(raster);
+                }
+                else {
+                    Log::Error("%s(TIFFReadRGBAImage) failed\n", __func__);
+                }
+
+            }
+            else {
+                Log::Error("%s(_TIFFmalloc) failed\n", __func__);
+            }
+
+            TIFFClose(tif);
+            return tex;
+        }
+        else {
+            Log::Error("%s(TIFFOpen) failed\n", __func__);
+        }
+        
+        return tex;
+    }
+
     g2dTexture *LoadImage(const std::string &path, int size) {
         int ret = 0;
         unsigned char *data = static_cast<unsigned char *>(std::malloc(size));
 
-        if (R_FAILED(ret = FS::ReadFile(path, data, size))) {
-            Log::Error("%s(FS::ReadFile) failed: 0x%08x\n", __func__, ret);
-            std::free(data);
-            return nullptr;
-        }
-
         g2dTexture *tex = nullptr;
         const char *ext = FS::GetFileExt(path.c_str());
 
-        if (strncasecmp(ext, "bmp", 3) == 0) {
-            tex = Textures::LoadImageBufferBMP(data, size);
+        if ((strncasecmp(ext, "tif", 3) == 0) || (strncasecmp(ext, "tiff", 4) == 0)) {
+            tex = Textures::LoadImageTIFF(path);
         }
-        else if (strncasecmp(ext, "gif", 3) == 0) {
-            tex = Textures::LoadImageBufferGIF(data, size);
-        }
-        else if ((strncasecmp(ext, "jpeg", 4) == 0) || (strncasecmp(ext, "jpg", 3) == 0)) {
-            tex = Textures::LoadImageBufferJPEG(data, size);
-        }
-        else if (strncasecmp(ext, "png", 3) == 0) {
-            tex = Textures::LoadImageBufferPNG(data, size);
+        else {
+            if (R_FAILED(ret = FS::ReadFile(path, data, size))) {
+                Log::Error("%s(FS::ReadFile) failed: 0x%08x\n", __func__, ret);
+                std::free(data);
+                return nullptr;
+            }
+    
+            if (strncasecmp(ext, "bmp", 3) == 0) {
+                tex = Textures::LoadImageBufferBMP(data, size);
+            }
+            else if (strncasecmp(ext, "gif", 3) == 0) {
+                tex = Textures::LoadImageBufferGIF(data, size);
+            }
+            else if ((strncasecmp(ext, "jpeg", 4) == 0) || (strncasecmp(ext, "jpg", 3) == 0)) {
+                tex = Textures::LoadImageBufferJPEG(data, size);
+            }
+            else if (strncasecmp(ext, "png", 3) == 0) {
+                tex = Textures::LoadImageBufferPNG(data, size);
+            }
+            else if ((strncasecmp(ext, "pgm", 3) == 0) || (strncasecmp(ext, "ppm", 3) == 0) || (strncasecmp(ext, "psd", 3) == 0)
+                || (strncasecmp(ext, "tga", 3) == 0)) {
+                tex = Textures::LoadImageBuffer(data, size);
+            }
         }
         
         std::free(data);

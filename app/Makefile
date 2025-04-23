@@ -14,7 +14,8 @@ VERSION_MAJOR :=  4
 VERSION_MINOR :=  1
 VERSION_MICRO :=  2
 
-INCDIR   = ../libs/ ../libs/include ../libs/libnsbmp ../libs/libnsgif ../libs/include/opus include
+INCDIR   = ../libs/ ../libs/include ../libs/include/libtiff ../libs/libnsbmp ../libs/libnsgif \
+           ../libs/include/opus include
 CFLAGS   = -Os -mno-gpopt -Wall -ffast-math -Wno-narrowing -Wno-unused-variable \
            -DVERSION_MAJOR=$(VERSION_MAJOR) -DVERSION_MINOR=$(VERSION_MINOR) -DVERSION_MICRO=$(VERSION_MICRO)
 CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti -std=gnu++17
@@ -25,7 +26,7 @@ BUILD_PRX = 1
 LIBDIR  = ../libs/lib
 LDFLAGS =
 LIBS    = -lintrafont -lglib2d -lxmp -lmpg123 -lvorbisfile -lvorbis -lopusfile -lopus -lFLAC -logg \
-          -larchive -lbz2 -llzma -lturbojpeg -ljpeg -lpng16 -lstdc++ -lz \
+          -larchive -ltiff -lbz2 -llzma -lturbojpeg -ljpeg -lpng16 -lstdc++ -lz \
           -lpspkubridge -lpspsystemctrl_user -lpspusbdevice \
           -lpspgu -lpspvram -lpspaudio -lpsppower -lpspreg -lpspusb -lpspusbstor -lpspumd
 

@@ -123,7 +123,7 @@ namespace FS {
         else if ((strncasecmp(ext, "bmp", 3) == 0) || (strncasecmp(ext, "gif", 3) == 0) || (strncasecmp(ext, "jpg", 3) == 0)
             || (strncasecmp(ext, "jpeg", 4) == 0) || (strncasecmp(ext, "pgm", 3) == 0) || (strncasecmp(ext, "ppm", 3) == 0)
             || (strncasecmp(ext, "png", 3) == 0) || (strncasecmp(ext, "psd", 3) == 0) || (strncasecmp(ext, "tga", 3) == 0)
-            || (strncasecmp(ext, "webp", 4) == 0)) {
+            || (strncasecmp(ext, "tif", 3) == 0) || (strncasecmp(ext, "tiff", 4) == 0)) {
                 return FileTypeImage;
         }
         else if ((strncasecmp(ext, "cfg", 3) == 0) || (strncasecmp(ext, "conf", 4) == 0) || (strncasecmp(ext, "ini", 3) == 0)
