@@ -18,9 +18,9 @@ namespace GUI {
 
     static SETTINGS_STATE settings_state = GENERAL_SETTINGS;
     static int selection = 0;
-    static const int sel_dist = 44;
-    static char ftp_text[36];
-    static bool screen_disabled = false;
+    static const int selectDistance = 44;
+    static char ftpText[36];
+    static bool screenDisabled = false;
 
     static void DisplayFTPSettings(void) {
         G2D::DrawRect(0, 18, 480, 254, G2D_RGBA(0, 0, 0, cfg.dark_theme? 50 : 80));
@@ -32,9 +32,9 @@ namespace GUI {
         G2D::DrawRect((409 - (ok_width)) - 5, (180 - (font->texYSize - 15)) - 5, ok_width + 10, (font->texYSize - 5) + 10, SELECTOR_COLOUR);
         G2D::DrawText(409 - (ok_width), (192 - (font->texYSize - 15)) - 3, "OK");
         
-        int text_width = intraFontMeasureText(font, ftp_text);
+        int text_width = intraFontMeasureText(font, ftpText);
         G2D::FontSetStyle(1.f, TEXT_COLOUR, INTRAFONT_ALIGN_LEFT);
-        G2D::DrawText(((480 - (text_width)) / 2), ((272 - (dialog[0]->h)) / 2) + 60, ftp_text);
+        G2D::DrawText(((480 - (text_width)) / 2), ((272 - (dialog[0]->h)) / 2) + 60, ftpText);
     }
 
     static void ControlFTPSettings(void) {
@@ -42,17 +42,20 @@ namespace GUI {
             Net::ExitFTP();
             settings_state = GENERAL_SETTINGS;
             
-            if (screen_disabled)
+            if (screenDisabled) {
                 pspDisplayEnable();
+            }
         }
 
         if (Utils::IsButtonPressed(PSP_CTRL_SELECT)) {
-            screen_disabled = !screen_disabled;
+            screenDisabled = !screenDisabled;
 
-            if (screen_disabled)
+            if (screenDisabled) {
                 pspDisplayDisable();
-            else
+            }
+            else {
                 pspDisplayEnable();
+            }
         }
 
         Utils::SetBounds(selection, 0, 0);
@@ -114,8 +117,9 @@ namespace GUI {
     }
 
     static void ControlAboutSettings(void) {
-        if ((Utils::IsButtonPressed(PSP_CTRL_ENTER)) || (Utils::IsButtonPressed(PSP_CTRL_CANCEL)))
+        if ((Utils::IsButtonPressed(PSP_CTRL_ENTER)) || (Utils::IsButtonPressed(PSP_CTRL_CANCEL))) {
             settings_state = GENERAL_SETTINGS;
+        }
         
         Utils::SetBounds(selection, 4, 4);
     }
@@ -145,10 +149,12 @@ namespace GUI {
         G2D::DrawText(60, 248, "About");
         G2D::DrawText(60, 262, "Application and device info");
 
-        if (cfg.dark_theme)
+        if (cfg.dark_theme) {
             G2D::DrawImage(icon_toggle_on[cfg.dark_theme], 415, 143);
-        else
+        }
+        else {
             G2D::DrawImage(icon_toggle_off, 415, 143);
+        }
 
         G2D::DrawImage(cfg.dev_options? icon_toggle_on[cfg.dark_theme] : icon_toggle_off, 415, 187);
     }
@@ -157,7 +163,7 @@ namespace GUI {
         if (Utils::IsButtonPressed(PSP_CTRL_ENTER)) {
             switch(selection) {
                 case 0:
-                    Net::InitFTP(ftp_text);
+                    Net::InitFTP(ftpText);
                     settings_state = FTP_SETTINGS;
                     break;
                 
@@ -195,7 +201,7 @@ namespace GUI {
         G2D::DrawRect(0, 52, 480, 220, BG_COLOUR);
         G2D::DrawImage(icon_back, 5, 20);
 
-        G2D::DrawRect(0, 52 + (selection * sel_dist), 480, sel_dist, SELECTOR_COLOUR);
+        G2D::DrawRect(0, 52 + (selection * selectDistance), 480, selectDistance, SELECTOR_COLOUR);
         G2D::FontSetStyle(1.f, WHITE, INTRAFONT_ALIGN_LEFT);
 
         switch(settings_state) {
@@ -220,10 +226,12 @@ namespace GUI {
     }
 
     void ControlSettings(MenuItem &item, int &ctrl) {
-        if (ctrl & PSP_CTRL_UP)
+        if (ctrl & PSP_CTRL_UP) {
             selection--;
-        else if (ctrl & PSP_CTRL_DOWN)
+        }
+        else if (ctrl & PSP_CTRL_DOWN) {
             selection++;
+        }
         
         switch(settings_state) {
             case GENERAL_SETTINGS:
