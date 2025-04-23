@@ -19,57 +19,73 @@ namespace Flash {
     void Init(void) {
         unsigned int ret = 0;
         
-        if ((R_FAILED(ret = sceIoUnassign("flash0:"))) && (ret != 0x80020321))
+        if ((R_FAILED(ret = sceIoUnassign("flash0:"))) && (ret != 0x80020321)) {
             Log::Error("sceIoUnassign(flash0) failed: 0x%x\n", ret);
+        }
             
-        if (R_FAILED(ret = sceIoAssign("flash0:", "lflash0:0,0", "flashfat0:", IOASSIGN_RDWR, nullptr, 0)))
+        if (R_FAILED(ret = sceIoAssign("flash0:", "lflash0:0,0", "flashfat0:", IOASSIGN_RDWR, nullptr, 0))) {
             Log::Error("sceIoAssign(flash0) failed: 0x%x\n", ret);
+        }
             
-        if ((R_FAILED(ret = sceIoUnassign("flash1:"))) && (ret != 0x80020321))
+        if ((R_FAILED(ret = sceIoUnassign("flash1:"))) && (ret != 0x80020321)) {
             Log::Error("sceIoUnassign(flash1) failed: 0x%x\n", ret);
+        }
             
-        if (R_FAILED(ret = sceIoAssign("flash1:", "lflash0:0,1", "flashfat1:", IOASSIGN_RDWR, nullptr, 0)))
+        if (R_FAILED(ret = sceIoAssign("flash1:", "lflash0:0,1", "flashfat1:", IOASSIGN_RDWR, nullptr, 0))) {
             Log::Error("sceIoAssign(flash1) failed: 0x%x\n", ret);
+        }
             
-        if ((R_FAILED(ret = sceIoUnassign("flash2:"))) && (ret != 0x80020321))
+        if ((R_FAILED(ret = sceIoUnassign("flash2:"))) && (ret != 0x80020321)) {
             Log::Error("sceIoUnassign(flash2) failed: 0x%x\n", ret);
+        }
             
-        if (R_FAILED(ret = sceIoAssign("flash2:", "lflash0:0,2", "flashfat2:", IOASSIGN_RDWR, nullptr, 0)))
+        if (R_FAILED(ret = sceIoAssign("flash2:", "lflash0:0,2", "flashfat2:", IOASSIGN_RDWR, nullptr, 0))) {
             Log::Error("sceIoAssign(flash2) failed: 0x%x\n", ret);
+        }
             
-        if ((R_FAILED(ret = sceIoUnassign("flash3:"))) && (ret != 0x80020321))
+        if ((R_FAILED(ret = sceIoUnassign("flash3:"))) && (ret != 0x80020321)) {
             Log::Error("sceIoUnassign(flash3) failed: 0x%x\n", ret);
+        }
         
-        if (R_FAILED(ret = sceIoAssign("flash3:", "lflash0:0,3", "flashfat3:", IOASSIGN_RDWR, nullptr, 0)))
+        if (R_FAILED(ret = sceIoAssign("flash3:", "lflash0:0,3", "flashfat3:", IOASSIGN_RDWR, nullptr, 0))) {
             Log::Error("sceIoAssign(flash3) failed: 0x%x\n", ret);
+        }
     }
     
     void Exit(void) {
         unsigned int ret = 0;
         
-        if ((R_FAILED(ret = sceIoUnassign("flash0:"))) && (ret != 0x80020321))
+        if ((R_FAILED(ret = sceIoUnassign("flash0:"))) && (ret != 0x80020321)) {
             Log::Error("sceIoUnassign(flash0) failed: 0x%x\n", ret);
+        }
         
-        if (R_FAILED(ret = sceIoAssign("flash0:", "lflash0:0,0", "flashfat0:", IOASSIGN_RDONLY, nullptr, 0)))
+        if (R_FAILED(ret = sceIoAssign("flash0:", "lflash0:0,0", "flashfat0:", IOASSIGN_RDONLY, nullptr, 0))) {
             Log::Error("sceIoAssign(flash0) failed: 0x%x\n", ret);
+        }
             
-        if ((R_FAILED(ret = sceIoUnassign("flash1:"))) && (ret != 0x80020321))
+        if ((R_FAILED(ret = sceIoUnassign("flash1:"))) && (ret != 0x80020321)) {
             Log::Error("sceIoUnassign(flash1) failed: 0x%x\n", ret);
+        }
             
-        if (R_FAILED(ret = sceIoAssign("flash1:", "lflash0:0,1", "flashfat1:", IOASSIGN_RDONLY, nullptr, 0)))
+        if (R_FAILED(ret = sceIoAssign("flash1:", "lflash0:0,1", "flashfat1:", IOASSIGN_RDONLY, nullptr, 0))) {
             Log::Error("sceIoAssign(flash1) failed: 0x%x\n", ret);
+        }
             
-        if ((R_FAILED(ret = sceIoUnassign("flash2:"))) && (ret != 0x80020321))
+        if ((R_FAILED(ret = sceIoUnassign("flash2:"))) && (ret != 0x80020321)) {
             Log::Error("sceIoUnassign(flash2) failed: 0x%x\n", ret);
+        }
             
-        if (R_FAILED(ret = sceIoAssign("flash2:", "lflash0:0,2", "flashfat2:", IOASSIGN_RDONLY, nullptr, 0)))
+        if (R_FAILED(ret = sceIoAssign("flash2:", "lflash0:0,2", "flashfat2:", IOASSIGN_RDONLY, nullptr, 0))) {
             Log::Error("sceIoAssign(flash2) failed: 0x%x\n", ret);
+        }
             
-        if ((R_FAILED(ret = sceIoUnassign("flash3:"))) && (ret != 0x80020321))
+        if ((R_FAILED(ret = sceIoUnassign("flash3:"))) && (ret != 0x80020321)) {
             Log::Error("sceIoUnassign(flash3) failed: 0x%x\n", ret);
+        }
             
-        if (R_FAILED(ret = sceIoAssign("flash3:", "lflash0:0,3", "flashfat3:", IOASSIGN_RDONLY, nullptr, 0)))
+        if (R_FAILED(ret = sceIoAssign("flash3:", "lflash0:0,3", "flashfat3:", IOASSIGN_RDONLY, nullptr, 0))) {
             Log::Error("sceIoAssign(flash3) failed: 0x%x\n", ret);
+        }
     }
 }
 
@@ -202,11 +218,13 @@ namespace Net {
                 ftppsp_add_device("ms0:");
                 ftppsp_add_device("ef0:");
             }
-            else
+            else {
                 ftppsp_add_device("ef0:");
+            }
         }
-        else
+        else {
             ftppsp_add_device("ms0:");
+        }
 
         if (cfg.dev_options) {
             Flash::Init();
@@ -216,11 +234,13 @@ namespace Net {
             ftppsp_add_device("flash3:");
             
             if (sceUmdCheckMedium() != 0) {
-                if (R_FAILED(ret = sceUmdActivate(1, "disc0:")))
+                if (R_FAILED(ret = sceUmdActivate(1, "disc0:"))) {
                     Log::Error("sceUmdActivate(disc0) failed: 0x%x\n", ret);
+                }
                 
-                if (R_FAILED(ret = sceUmdWaitDriveStat(PSP_UMD_READY)))
+                if (R_FAILED(ret = sceUmdWaitDriveStat(PSP_UMD_READY))) {
                     Log::Error("sceUmdWaitDriveStat() failed: 0x%x\n", ret);
+                }
 
                 ftppsp_add_device("disc0:");
             }
@@ -229,8 +249,9 @@ namespace Net {
         if (ret < 0) {
             std::snprintf(string, 19, "Connection Failed.");
         }
-        else
+        else {
             std::snprintf(string, 36, "FTP Connected %s:%i", psp_ip, psp_port);
+        }
 
         return true;
     }
@@ -241,8 +262,9 @@ namespace Net {
                 ftppsp_del_device("ms0:");
                 ftppsp_del_device("ef0:");
             }
-            else
+            else {
                 ftppsp_del_device("ef0:");
+            }
         }
         else
             ftppsp_del_device("ms0:");
@@ -257,8 +279,9 @@ namespace Net {
             if (sceUmdCheckMedium() != 0) {
                 int ret = 0;
 
-                if (R_FAILED(ret = sceUmdDeactivate(1, "disc0:")))
+                if (R_FAILED(ret = sceUmdDeactivate(1, "disc0:"))) {
                     Log::Error("sceUmdDeactivate(disc0) failed: 0x%x\n", ret);
+                }
 
                 ftppsp_del_device("disc0:");
             }
@@ -266,8 +289,9 @@ namespace Net {
         
         ftppsp_fini();
         
-        if (cfg.dev_options)
+        if (cfg.dev_options) {
             Flash::Exit();
+        }
         
         Net::Exit();
         
