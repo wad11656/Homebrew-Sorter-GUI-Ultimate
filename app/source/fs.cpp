@@ -112,7 +112,7 @@ namespace FS {
             return FileTypeApp;
         }
         else if ((strncasecmp(ext, "7z", 2) == 0) || (strncasecmp(ext, "lzma", 4) == 0) || (strncasecmp(ext, "rar", 3) == 0)
-            || (strncasecmp(ext, "zip", 3) == 0)) {
+            || (strncasecmp(ext, "tar", 3) == 0) || (strncasecmp(ext, "zip", 3) == 0)) {
             return FileTypeArchive;
         }
         else if ((strncasecmp(ext, "flac", 4) == 0) || (strncasecmp(ext, "it", 2) == 0) || (strncasecmp(ext, "mod", 3) == 0)
