@@ -7,10 +7,15 @@
 #include "utils.h"
 
 namespace Log {
+    static const char *logPath = "debug.log";
+
     int Error(const char *format, ...) {
         SceUID log = 0;
+
+        // Clear debug logs on start up
+        sceIoRemove(logPath);
         
-        if (R_SUCCEEDED(log = sceIoOpen("debug.log", PSP_O_WRONLY | PSP_O_CREAT | PSP_O_APPEND, 0777))) {
+        if (R_SUCCEEDED(log = sceIoOpen(logPath, PSP_O_WRONLY | PSP_O_CREAT | PSP_O_APPEND, 0777))) {
             va_list list;
             char string[256] = {0};
             
