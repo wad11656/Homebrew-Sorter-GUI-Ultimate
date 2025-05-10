@@ -96,7 +96,7 @@ namespace GUI {
         float resolution = sceRtcGetTickResolution() / 1000.f;
         sceRtcGetCurrentTick(&last_tick);
 
-        while(g_running) {
+        while(running) {
             u64 current_tick = 0;
             sceRtcGetCurrentTick(&current_tick);
             float delta = (current_tick - last_tick) / resolution;

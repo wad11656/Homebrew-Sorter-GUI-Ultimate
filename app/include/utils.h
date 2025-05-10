@@ -18,10 +18,10 @@ enum BROWSE_STATE {
     BROWSE_STATE_UMD
 };
 
-extern bool psp_usb_cable_connection, is_ms_inserted, is_psp_go;
+extern bool isMSInserted, isPSPGo;
 extern enum PspCtrlButtons PSP_CTRL_ENTER, PSP_CTRL_CANCEL;
 extern BROWSE_STATE device;
-extern int g_psp_language;
+extern int language;
 
 namespace Utils {
     void SetBounds(int &set, int min, int max);
@@ -32,7 +32,7 @@ namespace Utils {
     void TermKernelDrivers(void);
     void HandleUSB(void);
     bool IsModelPSPGo(void);
-    int IsMemCardInserted(bool &is_inserted);
+    int IsMemCardInserted(bool &isInserted);
     bool IsInternalStorage(void);
     int LaunchEboot(const char *path);
     u64 GetTotalStorage(void);

@@ -16,69 +16,72 @@
 #include "systemctrl_se.h"
 #include "utils.h"
 
-bool psp_usb_cable_connection = false, is_ms_inserted = false, is_psp_go = false;
+bool isMSInserted = false, isPSPGo = false;
 enum PspCtrlButtons PSP_CTRL_ENTER, PSP_CTRL_CANCEL;
 BROWSE_STATE device = BROWSE_STATE_EXTERNAL;
-int g_psp_language = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+int language = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 
 namespace Utils {
     constexpr unsigned int CTRL_DEADZONE_DELAY = 500000;
     constexpr unsigned int CTRL_DELAY = 100000;
 
-    static SceCtrlData pad, prev_pad;
-    static unsigned int last_button = 0;
-    static int last_button_tick = 0, deadzone_tick = 0;
-    static bool usb_module_loaded = false;
-    static bool usb_actived = false;
+    static SceCtrlData pad, prevPad;
+    static unsigned int lastButton = 0;
+    static int lastButtonTick = 0, deadzoneTick = 0;
+    static bool usbModuleLoaded = false, usbActivated = false, usbConnected = false;
     
-    typedef struct {
-        const char *path = nullptr;
-        int id = 0;
-    } Module;
-    
-    static std::vector<Module> kernel_modules {
-        { "audio_driver.prx", -1, },
-        { "display_driver.prx", -1, },
-        { "fs_driver.prx", -1, }
+    struct Module {
+        const char* path;
+        SceUID id;
     };
     
-    static std::vector<Module> usb_modules {
-        { "flash0:/kd/_usbdevice.prx", -1, },
-        { "flash0:/kd/semawm.prx", -1, },
-        { "flash0:/kd/usbstor.prx", -1, },
-        { "flash0:/kd/usbstormgr.prx", -1, },
-        { "flash0:/kd/usbstorms.prx", -1, },
-        { "flash0:/kd/usbstoreflash.prx", -1, },
-        { "flash0:/kd/usbstorboot.prx", -1, }
+    static std::vector<Module> kernelModules {
+        { "audio_driver.prx", -1 },
+        { "display_driver.prx", -1 },
+        { "fs_driver.prx", -1 }
+    };
+    
+    static std::vector<Module> usbModules {
+        { "flash0:/kd/semawm.prx", -1 },
+        { "flash0:/kd/usbstor.prx", -1 },
+        { "flash0:/kd/usbstormgr.prx", -1 },
+        { "flash0:/kd/usbstorms.prx", -1 },
+        { "flash0:/kd/usbstoreflash.prx", -1 },
+        { "flash0:/kd/usbstorboot.prx", -1 },
+        { "flash0:/kd/usb.prx", -1 }
     };
     
     typedef struct {
-        unsigned long maxclusters = 0;
-        unsigned long freeclusters = 0;
+        unsigned long maxClusters = 0;
+        unsigned long freeClusters = 0;
         int unk1 = 0;
-        unsigned int sectorsize = 0;
-        u64 sectorcount = 0;
+        unsigned int sectorSize = 0;
+        u64 sectorCount = 0;
     } SystemDevCtl;
     
     typedef struct {
-        SystemDevCtl *pdevinf;    
+        SystemDevCtl *devCtl;    
     } SystemDevCommand;
     
     void SetBounds(int &set, int min, int max) {
-        if (set > max)
+        if (set > max) {
             set = min;
-        else if (set < min)
+        }
+        else if (set < min) {
             set = max;
+        }
     }
 
     void SetMax(int &set, int value, int max) {
-        if (set > max)
+        if (set > max) {
             set = value;
+        }
     }
 
     void SetMin(int &set, int value, int min) {
-        if (set < min)
+        if (set < min) {
             set = value;
+        }
     }
 
     void GetSizeString(char *string, double size) {
@@ -118,11 +121,12 @@ namespace Utils {
     static int InitUSB(void) {
         int ret = 0;
         
-        if (!usb_module_loaded) {
-            for (unsigned int i = 0; i < usb_modules.size(); ++i)
-                usb_modules[i].id = Utils::LoadStartModule(usb_modules[i].path);
+        if (!usbModuleLoaded) {
+            for (unsigned int i = 0; i < usbModules.size(); ++i) {
+                usbModules[i].id = Utils::LoadStartModule(usbModules[i].path);
+            }
                 
-            usb_module_loaded = true;
+            usbModuleLoaded = true;
         }
         
         if (R_FAILED(ret = sceUsbStart(PSP_USBBUS_DRIVERNAME, 0, 0))) {
@@ -135,12 +139,7 @@ namespace Utils {
             return ret;
         }
         
-        if (R_FAILED(ret = sceUsbstorBootSetCapacity(0x800000))) {
-            Log::Error("sceUsbstorBootSetCapacity(0x800000) failed: 0x%08x\n", ret);
-            return ret;
-        }
-        
-        usb_actived = true;
+        usbActivated = true;
         return 0;
     }
 
@@ -152,7 +151,7 @@ namespace Utils {
             return ret;
         }
         
-        psp_usb_cable_connection = true;
+        usbConnected = true;
         return 0;
     }
 
@@ -169,18 +168,20 @@ namespace Utils {
             return ret;
         }
         
-        psp_usb_cable_connection = false;
+        usbConnected = false;
         return 0;
     }
 
     static int DisableUSB(void) {
         int ret = 0;
         
-        if (!usb_actived)
+        if (!usbActivated) {
             return -1;
+        }
             
-        if (R_FAILED(ret = Utils::StopUSBStorage()))
+        if (R_FAILED(ret = Utils::StopUSBStorage())) {
             return ret;
+        }
             
         if (R_FAILED(ret = sceUsbStop(PSP_USBSTOR_DRIVERNAME, 0, 0))) {
             Log::Error("sceUsbStop(PSP_USBSTOR_DRIVERNAME) failed: 0x%08x\n", ret);
@@ -197,34 +198,35 @@ namespace Utils {
             return ret;
         }
         
-        usb_actived = false;
+        usbActivated = false;
         return 0;
     }
 
     static void ExitUSB(void) {
         Utils::DisableUSB();
         
-        if (usb_module_loaded) {
-            for (int i = usb_modules.size() - 1; i >= 0; --i) {
-                Utils::StopUnloadModules(usb_modules[i].id);
-                usb_modules[i].id = -1;
+        if (usbModuleLoaded) {
+            for (int i = usbModules.size() - 1; i >= 0; --i) {
+                Utils::StopUnloadModules(usbModules[i].id);
+                usbModules[i].id = -1;
             }
             
-            usb_module_loaded = false;
+            usbModuleLoaded = false;
         }
     }
 
     void InitKernelDrivers(void) {
-        for (unsigned int i = 0; i < kernel_modules.size(); ++i)
-            kernel_modules[i].id = Utils::LoadStartModule(kernel_modules[i].path);
+        for (unsigned int i = 0; i < kernelModules.size(); ++i) {
+            kernelModules[i].id = Utils::LoadStartModule(kernelModules[i].path);
+        }
         
         Utils::InitUSB();
     }
 
     void TermKernelDrivers(void) {
-        for (int i = kernel_modules.size() - 1; i >= 0; --i) {
-            Utils::StopUnloadModules(kernel_modules[i].id);
-            kernel_modules[i].id = -1;
+        for (int i = kernelModules.size() - 1; i >= 0; --i) {
+            Utils::StopUnloadModules(kernelModules[i].id);
+            kernelModules[i].id = -1;
         }
         
         Utils::ExitUSB();
@@ -232,12 +234,14 @@ namespace Utils {
     
     void UpdateUSB(void) {
         if (sceUsbGetState() & PSP_USB_CABLE_CONNECTED) {
-            if (psp_usb_cable_connection == false)
+            if (usbConnected == false) {
                 Utils::StartUSBStorage();
+            }
         }
         else {
-            if (psp_usb_cable_connection == true)
+            if (usbConnected == true) {
                 Utils::StopUSBStorage();
+            }
         }
     }
 
@@ -245,23 +249,27 @@ namespace Utils {
         return (kuKernelGetModel() == 4);
     }
 
-    int IsMemCardInserted(bool &is_inserted) {
+    int IsMemCardInserted(bool &isInserted) {
         int status = 0, ret = 0;
-        if (R_FAILED(ret = sceIoDevctl("mscmhc0:", 0x02025806, 0, 0, &status, sizeof(status))))
+        if (R_FAILED(ret = sceIoDevctl("mscmhc0:", 0x02025806, 0, 0, &status, sizeof(status)))) {
             return ret;
+        }
             
-        if (status != 1)
-            is_inserted = false;
-        else
-            is_inserted = true;
+        if (status != 1) {
+            isInserted = false;
+        }
+        else {
+            isInserted = true;
+        }
         
         return 0;
     }
 
     bool IsInternalStorage(void) {
-        if (is_psp_go) {
-            if (!is_ms_inserted)
+        if (isPSPGo) {
+            if (!isMSInserted) {
                 return true;
+            }
                 
             return true;
         }
@@ -279,8 +287,8 @@ namespace Utils {
         param.argp = (void *)path;
         param.key = "game";
         
-        if (R_FAILED(ret = sctrlKernelLoadExecVSHWithApitype(Utils::IsInternalStorage()? 0x152 : 0x141, path, &param))) {
-            Log::Error("sctrlKernelLoadExecVSHWithApitype(%x, %s) failed: 0x%08x\n", Utils::IsInternalStorage()? 0x152 : 0x141, path, ret);
+        if (R_FAILED(ret = sctrlKernelLoadExecVSHWithApitype(Utils::IsInternalStorage()? 0x152 : PSP_INIT_APITYPE_MS2 , path, &param))) {
+            Log::Error("sctrlKernelLoadExecVSHWithApitype(%x, %s) failed: 0x%08x\n", Utils::IsInternalStorage()? 0x152 : PSP_INIT_APITYPE_MS2 , path, ret);
             return ret;
         }
         
@@ -291,12 +299,13 @@ namespace Utils {
         int ret = 0;
         SystemDevCtl devctl;
         SystemDevCommand command;
-        command.pdevinf = &devctl;
+        command.devCtl = &devctl;
         
-        if (R_FAILED(ret = sceIoDevctl(device == BROWSE_STATE_INTERNAL? "ef0": "ms0:", 0x02425818, &command, sizeof(SystemDevCommand), nullptr, 0)))
+        if (R_FAILED(ret = sceIoDevctl(device == BROWSE_STATE_INTERNAL? "ef0": "ms0:", 0x02425818, &command, sizeof(SystemDevCommand), nullptr, 0))) {
             return 0;
+        }
             
-        u64 size = (devctl.maxclusters * devctl.sectorcount) * devctl.sectorsize;
+        u64 size = (devctl.maxClusters * devctl.sectorCount) * devctl.sectorSize;
         return size;
     }
 
@@ -304,12 +313,13 @@ namespace Utils {
         int ret = 0;
         SystemDevCtl devctl;
         SystemDevCommand command;
-        command.pdevinf = &devctl;
+        command.devCtl = &devctl;
         
-        if (R_FAILED(ret = sceIoDevctl(device == BROWSE_STATE_INTERNAL? "ef0": "ms0:", 0x02425818, &command, sizeof(SystemDevCommand), nullptr, 0)))
+        if (R_FAILED(ret = sceIoDevctl(device == BROWSE_STATE_INTERNAL? "ef0": "ms0:", 0x02425818, &command, sizeof(SystemDevCommand), nullptr, 0))) {
             return 0;
+        }
             
-        u64 size = (devctl.freeclusters * devctl.sectorcount) * devctl.sectorsize; 
+        u64 size = (devctl.freeClusters * devctl.sectorCount) * devctl.sectorSize; 
         return size;
     }
 
@@ -319,62 +329,62 @@ namespace Utils {
     
     static int GetRegistryValue(const char *dir, const char *name, unsigned int *value) {
         int ret = 0;
-        struct RegParam reg_param;
-        REGHANDLE reg_handle = 0, reg_handle_cat = 0, reg_handle_key = 0;
+        struct RegParam regParam;
+        REGHANDLE regHandle = 0, regHandleCategory = 0, regHandleKey = 0;
         unsigned int type = 0, size = 0;
         
-        std::memset(&reg_param, 0, sizeof(RegParam));
-        reg_param.regtype = 1;
-        reg_param.namelen = std::strlen("/system");
-        reg_param.unk2 = 1;
-        reg_param.unk3 = 1;
-        std::strcpy(reg_param.name, "/system");
+        std::memset(&regParam, 0, sizeof(RegParam));
+        regParam.regtype = 1;
+        regParam.namelen = std::strlen("/system");
+        regParam.unk2 = 1;
+        regParam.unk3 = 1;
+        std::strcpy(regParam.name, "/system");
 
-        if (R_FAILED(ret = sceRegOpenRegistry(&reg_param, 2, &reg_handle))) {
+        if (R_FAILED(ret = sceRegOpenRegistry(&regParam, 2, &regHandle))) {
             Log::Error("sceRegOpenRegistry() failed: 0x%08x\n", ret);
             return ret;
         }
 
-        if (R_FAILED(ret = sceRegOpenCategory(reg_handle, dir, 2, &reg_handle_cat))) {
-            sceRegCloseRegistry(reg_handle);
+        if (R_FAILED(ret = sceRegOpenCategory(regHandle, dir, 2, &regHandleCategory))) {
+            sceRegCloseRegistry(regHandle);
             Log::Error("sceRegOpenCategory() failed: 0x%08x\n", ret);
             return ret;
         }
 
-        if (R_FAILED(ret = sceRegGetKeyInfo(reg_handle_cat, name, &reg_handle_key, &type, &size))) {
-            sceRegCloseCategory(reg_handle_cat);
-            sceRegCloseRegistry(reg_handle);
+        if (R_FAILED(ret = sceRegGetKeyInfo(regHandleCategory, name, &regHandleKey, &type, &size))) {
+            sceRegCloseCategory(regHandleCategory);
+            sceRegCloseRegistry(regHandle);
             Log::Error("sceRegGetKeyInfo() failed: 0x%08x\n", ret);
             return ret;
         }
 
-        if (R_FAILED(ret = sceRegGetKeyValue(reg_handle_cat, reg_handle_key, value, 4))) {
-            sceRegCloseCategory(reg_handle_cat);
-            sceRegCloseRegistry(reg_handle);
+        if (R_FAILED(ret = sceRegGetKeyValue(regHandleCategory, regHandleKey, value, 4))) {
+            sceRegCloseCategory(regHandleCategory);
+            sceRegCloseRegistry(regHandle);
             Log::Error("sceRegGetKeyValue() failed: 0x%08x\n", ret);
             return ret;
         }
 
-        if (R_FAILED(ret = sceRegFlushCategory(reg_handle_cat))) {
-            sceRegCloseCategory(reg_handle_cat);
-            sceRegCloseRegistry(reg_handle);
+        if (R_FAILED(ret = sceRegFlushCategory(regHandleCategory))) {
+            sceRegCloseCategory(regHandleCategory);
+            sceRegCloseRegistry(regHandle);
             Log::Error("sceRegFlushCategory() failed: 0x%08x\n", ret);
             return ret;
         }
 
-        if (R_FAILED(ret = sceRegCloseCategory(reg_handle_cat))) {
-            sceRegCloseRegistry(reg_handle);
+        if (R_FAILED(ret = sceRegCloseCategory(regHandleCategory))) {
+            sceRegCloseRegistry(regHandle);
             Log::Error("sceRegCloseCategory() failed: 0x%08x\n", ret);
             return ret;
         }
 
-        if (R_FAILED(ret = sceRegFlushRegistry(reg_handle))) {
-            sceRegCloseRegistry(reg_handle);
+        if (R_FAILED(ret = sceRegFlushRegistry(regHandle))) {
+            sceRegCloseRegistry(regHandle);
             Log::Error("sceRegFlushRegistry() failed: 0x%08x\n", ret);
             return ret;
         }
 
-        if (R_FAILED(ret = sceRegCloseRegistry(reg_handle))) {
+        if (R_FAILED(ret = sceRegCloseRegistry(regHandle))) {
             Log::Error("sceRegFlushRegistry() failed: 0x%08x\n", ret);
             return ret;
         }
@@ -383,75 +393,59 @@ namespace Utils {
     }
     
     int ReadControls(void) {
-        prev_pad = pad;
+        prevPad = pad;
         sceCtrlReadBufferPositive(&pad, 1);
         
-        if (pad.Buttons == last_button) {
-            if (pad.TimeStamp - deadzone_tick < CTRL_DEADZONE_DELAY)
+        if (pad.Buttons == lastButton) {
+            if (pad.TimeStamp - deadzoneTick < CTRL_DEADZONE_DELAY) {
                 return 0;
+            }
                 
-            if (pad.TimeStamp - last_button_tick < CTRL_DELAY)
+            if (pad.TimeStamp - lastButtonTick < CTRL_DELAY) {
                 return 0;
+            }
                 
-            last_button_tick = pad.TimeStamp;
-            return last_button;
+            lastButtonTick = pad.TimeStamp;
+            return lastButton;
         }
         
-        last_button = pad.Buttons;
-        deadzone_tick = last_button_tick = pad.TimeStamp;
-        return last_button;
+        lastButton = pad.Buttons;
+        deadzoneTick = lastButtonTick = pad.TimeStamp;
+        return lastButton;
     }
     
     int IsButtonPressed(enum PspCtrlButtons buttons) {
-        return ((pad.Buttons & buttons) == buttons) && ((prev_pad.Buttons & buttons) != buttons);
+        return ((pad.Buttons & buttons) == buttons) && ((prevPad.Buttons & buttons) != buttons);
     }
     
     int IsButtonHeld(enum PspCtrlButtons buttons) {
         return pad.Buttons & buttons;
     }
     
-    enum PspCtrlButtons GetEnterButton(void) {
+    static enum PspCtrlButtons GetAssignedButton(bool enter) {
         int ret = 0, button = -1;
-
+        
         if (R_FAILED(ret = sceUtilityGetSystemParamInt(PSP_SYSTEMPARAM_ID_INT_UNKNOWN, &button))) {
             Log::Error("sceUtilityGetSystemParamInt(PSP_SYSTEMPARAM_ID_INT_UNKNOWN) failed: 0x%08x\n", ret);
-
-            unsigned int reg_button = -1;
-            if (R_SUCCEEDED(Utils::GetRegistryValue("/CONFIG/SYSTEM/XMB", "button_assign", &reg_button))) {
-                if (reg_button == 0)
-                    return PSP_CTRL_CIRCLE;
-                
-                return PSP_CTRL_CROSS;
+    
+            unsigned int regButton = -1;
+            if (R_SUCCEEDED(Utils::GetRegistryValue("/CONFIG/SYSTEM/XMB", "button_assign", &regButton))) {
+                return (regButton == 0) == enter ? PSP_CTRL_CIRCLE : PSP_CTRL_CROSS;
             }
-        }
 
-        if (button == 0)
-            return PSP_CTRL_CIRCLE;
-            
-        return PSP_CTRL_CROSS; // By default return PSP_CTRL_CROSS
+            return enter ? PSP_CTRL_CROSS : PSP_CTRL_CIRCLE;
+        }
+        
+        return (button == 0) == enter ? PSP_CTRL_CIRCLE : PSP_CTRL_CROSS;
     }
     
-    // Basically the opposite of GetEnterButton()
-    enum PspCtrlButtons GetCancelButton(void) {
-        int ret = 0, button = -1;
-
-        if (R_FAILED(ret = sceUtilityGetSystemParamInt(PSP_SYSTEMPARAM_ID_INT_UNKNOWN, &button))) {
-            Log::Error("sceUtilityGetSystemParamInt(PSP_SYSTEMPARAM_ID_INT_UNKNOWN) failed: 0x%08x\n", ret);
-
-            unsigned int reg_button = -1;
-            if (R_SUCCEEDED(Utils::GetRegistryValue("/CONFIG/SYSTEM/XMB", "button_assign", &reg_button))) {
-                if (reg_button == 0)
-                    return PSP_CTRL_CROSS;
-                
-                return PSP_CTRL_CIRCLE;
-            }
-        }
-
-        if (button == 0)
-            return PSP_CTRL_CROSS;
-            
-        return PSP_CTRL_CIRCLE; // By default return PSP_CTRL_CIRCLE
+    enum PspCtrlButtons GetEnterButton(void) {
+        return Utils::GetAssignedButton(true);
     }
+    
+    enum PspCtrlButtons GetCancelButton(void) {
+        return Utils::GetAssignedButton(false);
+    }    
     
     float GetAnalogX(void) {
         return ((static_cast<float>(pad.Lx - 122.5f)) / 122.5f);
@@ -464,8 +458,9 @@ namespace Utils {
     bool IsCancelButtonPressed(void) {
         Utils::ReadControls();
         
-        if (Utils::IsButtonPressed(PSP_CTRL_CANCEL))
+        if (Utils::IsButtonPressed(PSP_CTRL_CANCEL)) {
             return true;
+        }
             
         return false;
     }

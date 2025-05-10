@@ -98,7 +98,7 @@ namespace Net {
         std::memset(&data, 0, sizeof(pspUtilityNetconfData));
         
         data.base.size = sizeof(pspUtilityNetconfData);
-        data.base.language = g_psp_language;
+        data.base.language = language;
         data.base.buttonSwap = (PSP_CTRL_ENTER == PSP_CTRL_CROSS)? PSP_UTILITY_ACCEPT_CROSS : PSP_UTILITY_ACCEPT_CIRCLE;
         data.base.graphicsThread = 17;
         data.base.accessThread = 19;
@@ -213,8 +213,8 @@ namespace Net {
             std::snprintf(string, 27, "FTP initialization Failed.");
             return false;
         }
-        if (is_psp_go) {
-            if (is_ms_inserted) {
+        if (isPSPGo) {
+            if (isMSInserted) {
                 ftppsp_add_device("ms0:");
                 ftppsp_add_device("ef0:");
             }
@@ -257,8 +257,8 @@ namespace Net {
     }
 
     void ExitFTP(void) {
-        if (is_psp_go) {
-            if (is_ms_inserted) {
+        if (isPSPGo) {
+            if (isMSInserted) {
                 ftppsp_del_device("ms0:");
                 ftppsp_del_device("ef0:");
             }

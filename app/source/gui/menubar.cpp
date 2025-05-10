@@ -29,11 +29,11 @@ namespace GUI {
 
         G2D::FontSetStyle(1.f, cfg.dark_theme? WHITE : BLACK, INTRAFONT_ALIGN_LEFT);
         
-        if (is_psp_go) {
+        if (isPSPGo) {
             G2D::DrawImage(icon_sd[cfg.dark_theme], pos_x + 10, 92);
-            G2D::DrawText(pos_x + 50, 90 + ((30 - (font->glyph->height - 6)) / 2), !is_ms_inserted? "ef0:/" : "ms0:/");
+            G2D::DrawText(pos_x + 50, 90 + ((30 - (font->glyph->height - 6)) / 2), !isMSInserted? "ef0:/" : "ms0:/");
             
-            if (is_ms_inserted) {
+            if (isMSInserted) {
                 G2D::DrawImage(icon_secure[cfg.dark_theme], pos_x + 10, 122);
                 G2D::DrawText(pos_x + 50, 90 + ((30 - (font->glyph->height - 6)) / 2) + 30, "ef0:/");
                 
@@ -96,14 +96,14 @@ namespace GUI {
         else if (ctrl & PSP_CTRL_DOWN)
             selection++;
             
-        if (is_psp_go) {
+        if (isPSPGo) {
             if (cfg.dev_options) {
-                Utils::SetMax(selection, 0, is_ms_inserted? 5 : 4);
-                Utils::SetMin(selection, is_ms_inserted? 5 : 4, 0);
+                Utils::SetMax(selection, 0, isMSInserted? 5 : 4);
+                Utils::SetMin(selection, isMSInserted? 5 : 4, 0);
             }
             else {
-                Utils::SetMax(selection, 0, is_ms_inserted? 1 : 0);
-                Utils::SetMin(selection, is_ms_inserted? 1 : 0, 0);
+                Utils::SetMax(selection, 0, isMSInserted? 1 : 0);
+                Utils::SetMin(selection, isMSInserted? 1 : 0, 0);
             }
         }
         else {
@@ -116,18 +116,18 @@ namespace GUI {
 
             switch (selection) {
                 case 0:
-                    if ((is_psp_go && is_ms_inserted) || (!is_psp_go)) {
+                    if ((isPSPGo && isMSInserted) || (!isPSPGo)) {
                         cfg.cwd = "ms0:";
                         device = BROWSE_STATE_EXTERNAL;
                     }
-                    else if (is_psp_go && !is_ms_inserted) {
+                    else if (isPSPGo && !isMSInserted) {
                         cfg.cwd = "ef0:";
                         device = BROWSE_STATE_INTERNAL;
                     }
                     break;
 
                 case 1:
-                    if (!(is_psp_go && is_ms_inserted)) {
+                    if (!(isPSPGo && isMSInserted)) {
                         if ((R_FAILED(ret = sceIoUnassign("flash0:"))) && (ret != 0x80020321))
                             Log::Error("sceIoUnassign(flash0) failed: 0x%x\n", ret);
                             
@@ -135,12 +135,12 @@ namespace GUI {
                             Log::Error("sceIoAssign(flash0) failed: 0x%x\n", ret);
                     }
 
-                    cfg.cwd = (is_psp_go && is_ms_inserted)? "ef0:" : "flash0:/";
-                    device = (is_psp_go && is_ms_inserted)? BROWSE_STATE_INTERNAL : BROWSE_STATE_FLASH0;
+                    cfg.cwd = (isPSPGo && isMSInserted)? "ef0:" : "flash0:/";
+                    device = (isPSPGo && isMSInserted)? BROWSE_STATE_INTERNAL : BROWSE_STATE_FLASH0;
                     break;
 
                 case 2:
-                    if (is_psp_go && is_ms_inserted) {
+                    if (isPSPGo && isMSInserted) {
                         if ((R_FAILED(ret = sceIoUnassign("flash0:"))) && (ret != 0x80020321))
                             Log::Error("sceIoUnassign(flash0) failed: 0x%x\n", ret);
                             
@@ -155,12 +155,12 @@ namespace GUI {
                             Log::Error("sceIoAssign(flash1) failed: 0x%x\n", ret);
                     }
 
-                    cfg.cwd = (is_psp_go && is_ms_inserted)? "flash0:/" : "flash1:/";
-                    device = (is_psp_go && is_ms_inserted)? BROWSE_STATE_FLASH0 : BROWSE_STATE_FLASH1;
+                    cfg.cwd = (isPSPGo && isMSInserted)? "flash0:/" : "flash1:/";
+                    device = (isPSPGo && isMSInserted)? BROWSE_STATE_FLASH0 : BROWSE_STATE_FLASH1;
                     break;
 
                 case 3:
-                    if (is_psp_go && is_ms_inserted) {
+                    if (isPSPGo && isMSInserted) {
                         if ((R_FAILED(ret = sceIoUnassign("flash1:"))) && (ret != 0x80020321))
                             Log::Error("sceIoUnassign(flash1) failed: 0x%x\n", ret);
                             
@@ -175,12 +175,12 @@ namespace GUI {
                             Log::Error("sceIoAssign(flash2) failed: 0x%x\n", ret);
                     }
 
-                    cfg.cwd = (is_psp_go && is_ms_inserted)? "flash1:/" : "flash2:/";
-                    device = (is_psp_go && is_ms_inserted)? BROWSE_STATE_FLASH1 : BROWSE_STATE_FLASH2;
+                    cfg.cwd = (isPSPGo && isMSInserted)? "flash1:/" : "flash2:/";
+                    device = (isPSPGo && isMSInserted)? BROWSE_STATE_FLASH1 : BROWSE_STATE_FLASH2;
                     break;
 
                 case 4:
-                    if (is_psp_go && is_ms_inserted) {
+                    if (isPSPGo && isMSInserted) {
                         if ((R_FAILED(ret = sceIoUnassign("flash2:"))) && (ret != 0x80020321))
                             Log::Error("sceIoUnassign(flash2) failed: 0x%x\n", ret);
                             
@@ -195,12 +195,12 @@ namespace GUI {
                             Log::Error("sceIoAssign(flash3) failed: 0x%x\n", ret);
                     }
 
-                    cfg.cwd = (is_psp_go && is_ms_inserted)? "flash2:/" : "flash3:/";
-                    device = (is_psp_go && is_ms_inserted)? BROWSE_STATE_FLASH2 : BROWSE_STATE_FLASH3;
+                    cfg.cwd = (isPSPGo && isMSInserted)? "flash2:/" : "flash3:/";
+                    device = (isPSPGo && isMSInserted)? BROWSE_STATE_FLASH2 : BROWSE_STATE_FLASH3;
                     break;
 
                 case 5:
-                    if (is_psp_go && is_ms_inserted) {
+                    if (isPSPGo && isMSInserted) {
                         if ((R_FAILED(ret = sceIoUnassign("flash3:"))) && (ret != 0x80020321))
                             Log::Error("sceIoUnassign(flash3) failed: 0x%x\n", ret);
                         
@@ -210,7 +210,7 @@ namespace GUI {
                         cfg.cwd = "flash3:/";
                         device = BROWSE_STATE_FLASH3;
                     }
-                    else if (!is_psp_go) {
+                    else if (!isPSPGo) {
                         if (sceUmdCheckMedium() != 0) {
                             if (R_FAILED(ret = sceUmdActivate(1, "disc0:")))
                                 Log::Error("sceUmdActivate(disc0) failed: 0x%x\n", ret);

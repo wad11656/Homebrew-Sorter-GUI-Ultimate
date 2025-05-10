@@ -27,12 +27,12 @@ namespace Config {
         int ret = 0;
         
         // Set root path and current working directory based on model.
-        cfg.cwd = is_psp_go? "ef0:" : "ms0:";
-        device = is_psp_go ? BROWSE_STATE_INTERNAL : BROWSE_STATE_EXTERNAL;
+        cfg.cwd = isPSPGo? "ef0:" : "ms0:";
+        device = isPSPGo ? BROWSE_STATE_INTERNAL : BROWSE_STATE_EXTERNAL;
         
         if (!FS::FileExists("config.json")) {
             cfg = config_t();
-            cfg.cwd = is_psp_go? "ef0:" : "ms0:";
+            cfg.cwd = isPSPGo? "ef0:" : "ms0:";
             return Config::Save(cfg);
         }
         
@@ -53,7 +53,7 @@ namespace Config {
             (!document.HasMember("dark_theme")) || (!document.HasMember("dev_options"))) {
             Log::Error("%s failed: Malformed config file, resetting\n", __func__);
             cfg = config_t();
-            cfg.cwd = is_psp_go? "ef0:" : "ms0:";
+            cfg.cwd = isPSPGo? "ef0:" : "ms0:";
             return Config::Save(cfg);
         }
         
@@ -68,7 +68,7 @@ namespace Config {
         if (config_version_holder < config_version) {
             sceIoRemove("config.json");
             cfg = config_t();
-            cfg.cwd = is_psp_go? "ef0:" : "ms0:";
+            cfg.cwd = isPSPGo? "ef0:" : "ms0:";
             return Config::Save(cfg);
         }
         

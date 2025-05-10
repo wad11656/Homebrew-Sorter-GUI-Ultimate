@@ -60,7 +60,7 @@ namespace G2D {
         std::memset(&params, 0, sizeof(SceUtilityOskParams));
 
         params.base.size = sizeof(SceUtilityOskParams);
-        params.base.language = g_psp_language;
+        params.base.language = language;
         params.base.buttonSwap = (PSP_CTRL_ENTER == PSP_CTRL_CROSS)? PSP_UTILITY_ACCEPT_CROSS : PSP_UTILITY_ACCEPT_CIRCLE;
         params.base.graphicsThread = 17;
         params.base.accessThread = 19;

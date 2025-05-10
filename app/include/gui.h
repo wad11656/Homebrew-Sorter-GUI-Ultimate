@@ -30,7 +30,7 @@ typedef struct {
     g2dTexture *texture = nullptr;
 } MenuItem;
 
-extern bool g_running;
+extern bool running;
 
 namespace GUI {
     void ResetCheckbox(MenuItem &item);
