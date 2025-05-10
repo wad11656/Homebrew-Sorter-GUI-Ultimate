@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
 	param.args = strlen(path + 1);
 	param.argp = path;
 
-	ret = sctrlKernelLoadExecVSHWithApitype(0x141, path, &param);
+	ret = sctrlKernelLoadExecVSHWithApitype(PSP_INIT_APITYPE_MS2, path, &param);
 
 	sceKernelExitGame();
 	return ret;
