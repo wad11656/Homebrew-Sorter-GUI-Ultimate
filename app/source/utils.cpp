@@ -47,8 +47,7 @@ namespace Utils {
         { "flash0:/kd/usbstormgr.prx", -1 },
         { "flash0:/kd/usbstorms.prx", -1 },
         { "flash0:/kd/usbstoreflash.prx", -1 },
-        { "flash0:/kd/usbstorboot.prx", -1 },
-        { "flash0:/kd/usb.prx", -1 }
+        { "flash0:/kd/usbstorboot.prx", -1 }
     };
     
     typedef struct {
@@ -287,8 +286,8 @@ namespace Utils {
         param.argp = (void *)path;
         param.key = "game";
         
-        if (R_FAILED(ret = sctrlKernelLoadExecVSHWithApitype(Utils::IsInternalStorage()? 0x152 : PSP_INIT_APITYPE_MS2 , path, &param))) {
-            Log::Error("sctrlKernelLoadExecVSHWithApitype(%x, %s) failed: 0x%08x\n", Utils::IsInternalStorage()? 0x152 : PSP_INIT_APITYPE_MS2 , path, ret);
+        if (R_FAILED(ret = sctrlKernelLoadExecVSHWithApitype(Utils::IsInternalStorage()? 0x152 : PSP_INIT_APITYPE_MS2, path, &param))) {
+            Log::Error("sctrlKernelLoadExecVSHWithApitype(%x, %s) failed: 0x%08x\n", Utils::IsInternalStorage()? 0x152 : PSP_INIT_APITYPE_MS2, path, ret);
             return ret;
         }
         
