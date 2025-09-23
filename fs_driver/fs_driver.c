@@ -138,6 +138,15 @@ int pspIoGetstat(const char *file, SceIoStat *stat) {
 	return ret;
 }
 
+int pspIoChstat(const char *file, SceIoStat *stat, int bits) {
+    u32 k1   = pspSdkSetK1(0);
+    int lvl  = sctrlKernelSetUserLevel(8);
+    int ret  = sceIoChstat(file, stat, bits);
+    pspSdkSetK1(k1);
+    sctrlKernelSetUserLevel(lvl);
+    return ret;
+}
+
 int pspIoRename(const char *oldname, const char *newname) {
 	u32 k1 = pspSdkSetK1(0);
 	int level = sctrlKernelSetUserLevel(8);

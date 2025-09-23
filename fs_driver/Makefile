@@ -23,4 +23,4 @@ include $(PSPSDK)/lib/build_prx.mak
 
 all:
 	psp-build-exports -s $(PRX_EXPORTS)
-	mv fs_driver.S "../app/drivers/"
+# mv fs_driver.S "../app/drivers/"

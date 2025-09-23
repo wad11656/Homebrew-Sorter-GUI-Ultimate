@@ -1,0 +1,22 @@
+	.set noreorder
+
+#include "pspstub.s"
+
+	STUB_START "fs_driver",0x40090000,0x00100005
+	STUB_FUNC  0xE1D0113C,pspIoOpenDir
+	STUB_FUNC  0x7DF710E6,pspIoReadDir
+	STUB_FUNC  0xE62D03DB,pspIoCloseDir
+	STUB_FUNC  0x11F2BBA9,pspIoMakeDir
+	STUB_FUNC  0x75AA38F5,pspIoRemoveDir
+	STUB_FUNC  0x58824266,pspIoOpenFile
+	STUB_FUNC  0xCBF25E61,pspIoReadFile
+	STUB_FUNC  0xE8621DC8,pspIoWriteFile
+	STUB_FUNC  0x1FFDCDAB,pspIoCloseFile
+	STUB_FUNC  0xBF61DA37,pspIoLseek
+	STUB_FUNC  0x288AC6F4,pspIoLseek32
+	STUB_FUNC  0x15EDC23A,pspIoGetstat
+	STUB_FUNC  0xF686466D,pspIoChstat
+	STUB_FUNC  0x7C2BE9CF,pspIoRename
+	STUB_FUNC  0x00BDD1B3,pspIoRemoveFile
+	STUB_FUNC  0x6E870CE2,pspIoDevctl
+	STUB_END

@@ -1,6 +1,13 @@
 # Prerequisites
 *.d
 .vscode/
+.sfdx/
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
 
 # Object files
 *.o

@@ -1,29 +1,21 @@
-TARGET = CMFileManager
+TARGET       = KernelFileExplorer
+OBJS         = main.o
 
-OBJS   = source/main.o
+# Compiler flags (inline include)
+CFLAGS       = -O2 -G0 -Wall -I../libs/include
+CXXFLAGS     = $(CFLAGS) -fno-exceptions -fno-rtti
+ASFLAGS      = $(CFLAGS)
 
-VERSION_MAJOR :=  4
-VERSION_MINOR :=  1
-VERSION_MICRO :=  2
+# Linker settings
+LIBDIR       = ../libs/lib
+LDFLAGS      =
+LIBS         = -lpspsystemctrl_user
 
-INCDIR   = ../libs/include
-CFLAGS   = -Os -G0 -Wall -Werror -DVERSION_MAJOR=$(VERSION_MAJOR) -DVERSION_MINOR=$(VERSION_MINOR) -DVERSION_MICRO=$(VERSION_MICRO)
-CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
-ASFLAGS  := $(CFLAGS)
+# PSP eboot metadata
+EXTRA_TARGETS   = EBOOT.PBP
+PSP_EBOOT_TITLE = Kernel File Explorer
+PSP_EBOOT_ICON  = ../ICON0.PNG
 
-LIBDIR  = ../libs/lib
-LDFLAGS =
-LIBS    = -lpspsystemctrl_user
-
-EXTRA_TARGETS    = EBOOT.PBP
-PSP_EBOOT_TITLE  = CM File Manager PSP v$(VERSION_MAJOR).$(VERSION_MINOR)$(VERSION_MICRO)
-PSP_EBOOT_ICON   = ../ICON0.PNG
-
-PSPSDK=$(shell psp-config --pspsdk-path)
+# Include SDK build rules
+PSPSDK          = $(shell psp-config --pspsdk-path)
 include $(PSPSDK)/lib/build.mak
-
-%.o: %.png
-	bin2o -i $< $@ $(addsuffix _png, $(basename $(notdir $<) ))
-
-%.o: %.pgf
-	bin2o -i $< $@ $(addsuffix _pgf, $(basename $(notdir $<) ))

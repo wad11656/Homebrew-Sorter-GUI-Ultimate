@@ -1,44 +1,42 @@
-TARGET = CMFileManager
+TARGET   = APP
+OBJS = main.o fs_driver.o src/Texture.o src/MessageBox.o \
+       third_party/lz4/lz4.o \
+       src/iso_titles_extras.o \
+       third_party/minilzo/minilzo.o
 
-SOURCES   := data drivers source source/audio source/gui ../libs/libnsbmp ../libs/libnsgif
-CFILES    := $(foreach dir,$(SOURCES), $(wildcard $(dir)/*.c))
-SFILES    := $(foreach dir,$(SOURCES), $(wildcard $(dir)/*.S))
-CPPFILES  := $(foreach dir,$(SOURCES), $(wildcard $(dir)/*.cpp))
-GFXFILES  := $(foreach dir,$(SOURCES), $(wildcard $(dir)/*.png))
-FONTFILES := $(foreach dir,$(SOURCES), $(wildcard $(dir)/*.pgf))
+# Locate the PSP SDK
+PSPSDK := $(shell psp-config --pspsdk-path)
 
-OBJS := $(addsuffix .o,$(BINFILES)) \
-        $(CFILES:.c=.o) $(SFILES:.S=.o) $(CPPFILES:.cpp=.o) $(GFXFILES:.png=.o) $(FONTFILES:.pgf=.o)
+# Your extra include paths (stb in ../libs/include, our headers in ./include)
+INCDIR = ../libs/include include third_party/minilzo third_party/lz4
 
-VERSION_MAJOR :=  4
-VERSION_MINOR :=  1
-VERSION_MICRO :=  2
+# Compiler flags
+CFLAGS   = -O2 -G0 -Wall
+CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti -std=gnu++11
+ASFLAGS  = $(CFLAGS)
 
-INCDIR   = ../libs/ ../libs/include ../libs/include/libtiff ../libs/libnsbmp ../libs/libnsgif \
-           ../libs/include/opus include
-CFLAGS   = -Os -mno-gpopt -Wall -ffast-math -Wno-narrowing -Wno-unused-variable \
-           -DVERSION_MAJOR=$(VERSION_MAJOR) -DVERSION_MINOR=$(VERSION_MINOR) -DVERSION_MICRO=$(VERSION_MICRO)
-CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti -std=gnu++17
-ASFLAGS  := $(CFLAGS)
-
+# Build as PRX so we can stub out kernel functions
 BUILD_PRX = 1
 
-LIBDIR  = ../libs/lib
-LDFLAGS =
-LIBS    = -lintrafont -lglib2d -lxmp -lmpg123 -lvorbisfile -lvorbis -lopusfile -lopus -lFLAC -logg \
-          -larchive -ltiff -lbz2 -llzma -lturbojpeg -ljpeg -lpng16 -lstdc++ -lz \
-          -lpspkubridge -lpspsystemctrl_user -lpspusbdevice \
-          -lpspgu -lpspvram -lpspaudio -lpsppower -lpspreg -lpspusb -lpspusbstor -lpspumd
+# Your extra library paths
+LIBDIR = ../libs/lib
 
-EXTRA_TARGETS    = EBOOT.PBP
-PSP_EBOOT_TITLE  = CM File Manager PSP v$(VERSION_MAJOR).$(VERSION_MINOR)$(VERSION_MICRO)
-PSP_EBOOT_ICON   = ../ICON0.PNG
+# PSP libs + intraFont + C++ runtime
+LIBS = -lintrafont \
+       -lpsputility \
+       -lpspgu -lpspgum -lpsprtc -lpspctrl -lpsppower \
+       -lpspdisplay -lpspkubridge -lpspdebug -lstdc++ -lm -lz
 
-PSPSDK=$(shell psp-config --pspsdk-path)
+# PSP EBOOT metadata
+EXTRA_TARGETS   = EBOOT.PBP
+PSP_EBOOT_TITLE = Kernel File Explorer
+
+# Pull in the standard PSP SDK build rules
 include $(PSPSDK)/lib/build.mak
 
-%.o: %.png
-	bin2o -i $< $@ $(addsuffix _png, $(basename $(notdir $<) ))
+# Regenerate your exports stub
+fs_driver.S:
+	psp-build-exports -s ../fs_driver/exports.exp > fs_driver.S
 
-%.o: %.pgf
-	bin2o -i $< $@ $(addsuffix _pgf, $(basename $(notdir $<) ))
+# Ensure main.o rebuilds if you regenerate the stub
+main.o: fs_driver.S
