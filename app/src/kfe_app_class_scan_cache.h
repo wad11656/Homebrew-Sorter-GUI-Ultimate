@@ -3138,6 +3138,7 @@
 
     void handleGclToggleAt(int idx){
         if (idx < 0) return;
+        optMenuOwnedWarnings.clear();
 
         if (idx < (int)rowFlags.size() && (rowFlags[idx] & ROW_DISABLED)) {
             drawMessage("Enable CAT prefix first", COLOR_RED);
@@ -3150,8 +3151,20 @@
 
         if (idx == 0) {
             // Category mode
-            std::vector<OptionItem> items = { {"Multi MS", false}, {"Contextual menu", false}, {"Folders", false} };
+            optMenuOwnedWarnings.clear();
+            FolderModeConstraints folderConstraints = computeFolderModeConstraints(gclCfg.uncategorized);
+            const char* foldersWarning = "8 Max.|30char Cat.+App Folder len.";
+            if (folderConstraints.tooLongCategory) {
+                optMenuOwnedWarnings.push_back("8 Max.|30char Cat.+App Folder len.");
+                foldersWarning = optMenuOwnedWarnings.back().c_str();
+            }
+            std::vector<OptionItem> items = {
+                {"Multi MS", false},
+                {"Contextual menu", false},
+                {"Folders", !folderConstraints.foldersAllowed, foldersWarning}
+            };
             optMenu = new OptionListMenu("Category Mode", "Choose how you want your categories to be presented in the XMB.", items, SCREEN_WIDTH, SCREEN_HEIGHT);
+            optMenu->setWidthOverride(352);
             gclPending = GCL_SK_Mode;
             optMenu->setSelected((int)gclCfg.mode);
 
@@ -3161,8 +3174,10 @@
             inputWaitRelease = true;
         } else if (idx == 1) {
             // Category prefix
+            const bool disableCatPrefix =
+                (gclCfg.mode == 2) && !computeFolderModeConstraints(gclCfg.uncategorized, 1, gclCfg.catsort).foldersAllowed;
             std::vector<OptionItem> items = {
-                {"None", false}, {"Use CAT prefix", false}
+                {"None", false}, {"Use CAT prefix", disableCatPrefix}
             };
             optMenu = new OptionListMenu("Category Prefix", "Require the \"CAT_\" prefix on folders meant to act as categories.", items, SCREEN_WIDTH, SCREEN_HEIGHT);
             gclPending = GCL_SK_Prefix;
@@ -3174,8 +3189,14 @@
             inputWaitRelease = true;
         } else if (idx == 2) {
             // Show uncategorized
+            const bool disableMsUncat = (gclCfg.mode == 2) && uncategorizedChoiceExceedsFoldersLimit(1);
+            const bool disableEfUncat = (gclCfg.mode == 2) && uncategorizedChoiceExceedsFoldersLimit(2);
+            const bool disableBothUncat = (gclCfg.mode == 2) && uncategorizedChoiceExceedsFoldersLimit(3);
             std::vector<OptionItem> items = {
-                {"No", false}, {"Only Memory Stick", false}, {"Only Internal Storage", !go}, {"Both", !go}
+                {"No", false},
+                {"Only Memory Stick", disableMsUncat},
+                {"Only Internal Storage", !go || disableEfUncat},
+                {"Both", !go || disableBothUncat}
             };
             optMenu = new OptionListMenu("Show Uncategorized", "Enable the \"Uncategorized\" category for games not placed in a category subfolder.", items, SCREEN_WIDTH, SCREEN_HEIGHT);
             gclPending = GCL_SK_Uncat;
@@ -3189,7 +3210,9 @@
             inputWaitRelease = true;
         } else if (idx == 3) {
             // Sort categories
-            std::vector<OptionItem> items = { {"No", false}, {"Yes", false} };
+            const bool disableSortYes =
+                (gclCfg.mode == 2) && !computeFolderModeConstraints(gclCfg.uncategorized, gclCfg.prefix, 1).foldersAllowed;
+            std::vector<OptionItem> items = { {"No", false}, {"Yes", disableSortYes} };
             optMenu = new OptionListMenu("Sort Categories", "Sort categories by using a \"##\" prefix. E.g.: \"01MyCategory\", \"CAT_02MyCategory\"", items, SCREEN_WIDTH, SCREEN_HEIGHT);
             gclPending = GCL_SK_Sort;
             optMenu->setSelected((int)gclCfg.catsort);

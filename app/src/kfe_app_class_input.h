@@ -513,6 +513,7 @@
                     inputWaitRelease = true;
                 } else if (view == View_Categories) {
                     const bool gclOn = (gclArkOn || gclProOn);
+                    const bool newDisabled = currentDeviceAtFoldersCategoryLimit();
                     bool canHide = false;
                     bool canDelete = false;
                     bool catHidden = false;
@@ -526,7 +527,7 @@
                     }
                     const char* catHideLabel = catHidden ? "Unhide in XMB" : "Hide in XMB";
                     std::vector<FileOpsItem> items = {
-                        { "New",    false },
+                        { "New",    newDisabled },
                         { catHideLabel, !canHide },
                         { "Delete", !canDelete }
                     };
@@ -721,7 +722,7 @@
                     std::vector<OptionItem> items = {
                         { "Off",   false },
                         { "ARK-4", false },
-                        { "PRO/ME",false }
+                        { "PRO/ME", false, "Vita may require \"CAT_\" prefixes" }
                     };
                     optMenu = new OptionListMenu(
                         "Game Categories",
@@ -1218,7 +1219,10 @@
                                 }
                             }
                         } else {
+                            const uint32_t prevPrefix = gclCfg.prefix;
                             const uint32_t prevCatsort = gclCfg.catsort;
+                            const uint32_t prevMode = gclCfg.mode;
+                            const uint32_t prevUncategorized = gclCfg.uncategorized;
                             // Existing in-plugin settings pickers
                             switch (pending) {
                                 case GCL_SK_Mode:   gclCfg.mode = (uint32_t)pick; break;
@@ -1293,6 +1297,51 @@
                                 }
                                 default: break;
                             }
+                            if (pending == GCL_SK_Mode && gclCfg.mode == 2 && prevMode != 2) {
+                                FolderModeConstraints folderConstraints = computeFolderModeConstraints(gclCfg.uncategorized);
+                                if (!folderConstraints.foldersAllowed) {
+                                    gclCfg.mode = prevMode;
+                                    drawMessage(folderConstraints.tooLongCategory ? "Category folder too long" : "8 Folders max.", COLOR_RED);
+                                    sceKernelDelayThread(700*1000);
+                                    buildGclSettingsRowsFromState();
+                                    inputWaitRelease = true;
+                                    continue;
+                                }
+                                if (!applyFoldersModeEbootNameLimits()) {
+                                    gclCfg.mode = prevMode;
+                                    drawMessage("Folders mode rename failed", COLOR_RED);
+                                    sceKernelDelayThread(700*1000);
+                                    buildGclSettingsRowsFromState();
+                                    inputWaitRelease = true;
+                                    continue;
+                                }
+                            }
+                            if (pending == GCL_SK_Uncat && gclCfg.mode == 2 &&
+                                uncategorizedChoiceExceedsFoldersLimit(gclCfg.uncategorized)) {
+                                gclCfg.uncategorized = prevUncategorized;
+                                drawMessage("8 Folders max.", COLOR_RED);
+                                sceKernelDelayThread(700*1000);
+                                buildGclSettingsRowsFromState();
+                                inputWaitRelease = true;
+                                continue;
+                            }
+                            if (gclCfg.mode == 2) {
+                                const bool enablingPrefix = (pending == GCL_SK_Prefix && prevPrefix == 0 && gclCfg.prefix != 0);
+                                const bool enablingSort = (pending == GCL_SK_Sort && prevCatsort == 0 && gclCfg.catsort != 0);
+                                if (enablingPrefix || enablingSort) {
+                                    FolderModeConstraints folderConstraints =
+                                        computeFolderModeConstraints(gclCfg.uncategorized, gclCfg.prefix, gclCfg.catsort);
+                                    if (!folderConstraints.foldersAllowed) {
+                                        if (pending == GCL_SK_Prefix) gclCfg.prefix = prevPrefix;
+                                        if (pending == GCL_SK_Sort) gclCfg.catsort = prevCatsort;
+                                        drawMessage("Category+App name too long", COLOR_RED);
+                                        sceKernelDelayThread(700*1000);
+                                        buildGclSettingsRowsFromState();
+                                        inputWaitRelease = true;
+                                        continue;
+                                    }
+                                }
+                            }
                             if (pending != GCL_SK_Blacklist) {
                                 gclSaveConfig();
 
@@ -1329,6 +1378,11 @@
                                     // Keep in-memory cache consistent with on-disk names, preserving ICON0 paths
                                     patchCategoryCacheFromSettings(forceStripNumbers);
                                     refreshGclFilterFile();
+
+                                    if (gclCfg.mode == 2 && !applyFoldersModeEbootNameLimits()) {
+                                        drawMessage("Folders mode rename failed", COLOR_RED);
+                                        sceKernelDelayThread(700*1000);
+                                    }
                                 }
                             }
 
@@ -1431,6 +1485,11 @@
                     } else {
 // MC_CategoryOps: 0=New, 1=Hide/Unhide, 2=Delete
                         if (choice == 0) {
+                            if (currentDeviceAtFoldersCategoryLimit()) {
+                                drawMessage("8 Folders max.", COLOR_RED);
+                                sceKernelDelayThread(700*1000);
+                                continue;
+                            }
                             // New category: OSK → create across roots
                             std::string typed;
                             if (!promptTextOSK("New Category", "", 64, typed)) {

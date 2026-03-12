@@ -85,14 +85,258 @@ private:
     static std::unordered_map<std::string, std::vector<std::string>> gclGameFilterMap;       // key: filter root ("ms0:/", "ef0:/")
     static bool gclFiltersLoaded;
     static bool gclFiltersScrubbed;
+    static constexpr int GCL_FOLDERS_MAX_CATEGORIES = 8;
+    static constexpr int GCL_FOLDERS_MAX_PATH_NAME_SUM = 30;
     static inline bool blacklistActive() { return gclCfg.prefix != 0; }
-    bool isUncategorizedEnabledForDevice(const std::string& dev) const {
-        if (gclCfg.uncategorized == 0) return false;
-        if (gclCfg.uncategorized == 3) return true;
-        if (dev.empty()) return gclCfg.uncategorized != 0;
-        if (gclCfg.uncategorized == 1) return strncasecmp(dev.c_str(), "ms0:/", 5) == 0;
-        if (gclCfg.uncategorized == 2) return strncasecmp(dev.c_str(), "ef0:/", 5) == 0;
+    static bool hasCaseInsensitiveName(const std::vector<std::string>& names, const std::string& needle) {
+        for (const auto& name : names) {
+            if (!strcasecmp(name.c_str(), needle.c_str())) return true;
+        }
+        return false;
+    }
+    static bool isUncategorizedEnabledForSetting(uint32_t setting, const std::string& dev) {
+        if (setting == 0) return false;
+        if (setting == 3) return true;
+        if (dev.empty()) return setting != 0;
+        if (setting == 1) return strncasecmp(dev.c_str(), "ms0:/", 5) == 0;
+        if (setting == 2) return strncasecmp(dev.c_str(), "ef0:/", 5) == 0;
         return true;
+    }
+    bool isUncategorizedEnabledForDevice(const std::string& dev) const {
+        return isUncategorizedEnabledForSetting(gclCfg.uncategorized, dev);
+    }
+    static bool isBlacklistedCategoryFolderNoRename(const std::string& rootLabel, const std::string& sub,
+                                                    const std::string& absRoot) {
+        if (!strcasecmp(rootLabel.c_str(), "ISO/") && !strcasecmp(sub.c_str(), "VIDEO")) return true;
+        if (!blacklistActive()) return false;
+        std::string base = stripCategoryPrefixes(sub, gclCfg.catsort != 0);
+        return isBlacklistedBaseNameFor(absRoot, base);
+    }
+    struct FolderModeDeviceState {
+        std::string device;
+        int realCategoryCount = 0;
+        bool uncEnabled = false;
+        bool hasTooLongCategory = false;
+        std::string tooLongCategoryName;
+    };
+    struct FolderModeConstraints {
+        bool foldersAllowed = true;
+        bool overFolderLimit = false;
+        bool tooLongCategory = false;
+        std::string tooLongCategoryName;
+    };
+    void collectFolderModeDevices(std::vector<std::string>& out) const {
+        out.clear();
+        auto append = [&](const std::string& dev) {
+            std::string root = rootPrefix(dev);
+            if (root.empty()) return;
+            if (!hasCaseInsensitiveName(out, root)) out.push_back(root);
+        };
+        for (const auto& root : roots) append(root);
+        append(currentDevice);
+        if (out.empty()) append(isPspGo() ? "ef0:/" : "ms0:/");
+    }
+    static int folderModeCategoryNameLenForSettings(const std::string& baseName,
+                                                    uint32_t prefixSetting,
+                                                    uint32_t catsortSetting) {
+        int len = (int)baseName.size();
+        if (prefixSetting != 0) len += 4;   // "CAT_"
+        if (catsortSetting != 0) len += 2;  // "01"
+        return len;
+    }
+    static bool folderModeCanAssignUniqueTrimmedNamesInPath(const std::string& categoryPath, int allowedLeafLen) {
+        if (allowedLeafLen < 1) return false;
+
+        struct ChildEntry {
+            std::string name;
+            bool needsTrim = false;
+        };
+
+        std::vector<ChildEntry> allEntries;
+        std::vector<ChildEntry> trimTargets;
+        std::vector<std::string> reservedFinalNames;
+        forEachEntry(categoryPath, [&](const SceIoDirent& e) {
+            std::string entryName = e.d_name;
+            if (entryName == "." || entryName == "..") return;
+
+            ChildEntry child;
+            child.name = entryName;
+            if (FIO_S_ISDIR(e.d_stat.st_mode)) {
+                std::string childPath = joinDirFile(categoryPath, entryName.c_str());
+                if (!findEbootCaseInsensitive(childPath).empty()) {
+                    child.needsTrim = ((int)child.name.size() > allowedLeafLen);
+                }
+            }
+            allEntries.push_back(child);
+        });
+
+        for (const auto& child : allEntries) {
+            if (child.needsTrim) trimTargets.push_back(child);
+            else reservedFinalNames.push_back(child.name);
+        }
+
+        std::sort(trimTargets.begin(), trimTargets.end(),
+                  [](const ChildEntry& a, const ChildEntry& b) {
+                      return strcasecmp(a.name.c_str(), b.name.c_str()) < 0;
+                  });
+
+        for (const auto& child : trimTargets) {
+            bool assigned = false;
+            const int maxLen = std::min((int)child.name.size(), allowedLeafLen);
+            for (int len = maxLen; len >= 1; --len) {
+                std::string candidate = child.name.substr(0, (size_t)len);
+                if (hasCaseInsensitiveName(reservedFinalNames, candidate)) continue;
+                reservedFinalNames.push_back(candidate);
+                assigned = true;
+                break;
+            }
+            if (!assigned) return false;
+        }
+
+        return true;
+    }
+    FolderModeDeviceState scanFolderModeStateForDevice(const std::string& dev, uint32_t uncSetting,
+                                                       uint32_t prefixSetting = gclCfg.prefix,
+                                                       uint32_t catsortSetting = gclCfg.catsort) const {
+        FolderModeDeviceState state;
+        state.device = rootPrefix(dev);
+        state.uncEnabled = isUncategorizedEnabledForSetting(uncSetting, state.device);
+
+        const char* isoRoots[]  = {"ISO/"};
+        const char* gameRoots[] = {"PSP/GAME/","PSP/GAME/PSX/","PSP/GAME/Utility/","PSP/GAME150/"};
+        std::vector<std::pair<std::string, std::string>> scanRoots;
+        for (auto r : isoRoots)  scanRoots.emplace_back(state.device + std::string(r), std::string(r));
+        for (auto r : gameRoots) scanRoots.emplace_back(state.device + std::string(r), std::string(r));
+
+        struct FolderModeCatInfo {
+            std::string baseName;
+            int longestChildLen = 1;
+        };
+        std::vector<FolderModeCatInfo> seenCats;
+        bool hasTrimConflict = false;
+        auto findCatInfo = [&](const std::string& baseName) -> FolderModeCatInfo* {
+            for (auto& info : seenCats) {
+                if (!strcasecmp(info.baseName.c_str(), baseName.c_str())) return &info;
+            }
+            return nullptr;
+        };
+        for (const auto& rp : scanRoots) {
+            const std::string& absRoot = rp.first;
+            const std::string& rootLabel = rp.second;
+            std::vector<std::string> subs;
+            listSubdirs(absRoot, subs);
+            for (const auto& sub : subs) {
+                if (isBlacklistedCategoryFolderNoRename(rootLabel, sub, absRoot)) continue;
+                std::string subAbs = joinDirFile(absRoot, sub.c_str());
+                if (!findEbootCaseInsensitive(subAbs).empty()) continue;
+                std::string baseName = stripCategoryPrefixes(sub, gclCfg.catsort != 0);
+                FolderModeCatInfo* info = findCatInfo(baseName);
+                if (!info) {
+                    seenCats.push_back(FolderModeCatInfo());
+                    seenCats.back().baseName = baseName;
+                    seenCats.back().longestChildLen = 1;
+                    info = &seenCats.back();
+                }
+                if (rootLabel.rfind("PSP/GAME", 0) == 0) {
+                    const int categoryLen = folderModeCategoryNameLenForSettings(baseName, prefixSetting, catsortSetting);
+                    if (!hasTrimConflict &&
+                        !folderModeCanAssignUniqueTrimmedNamesInPath(subAbs, GCL_FOLDERS_MAX_PATH_NAME_SUM - categoryLen)) {
+                        hasTrimConflict = true;
+                        state.hasTooLongCategory = true;
+                        state.tooLongCategoryName = baseName;
+                    }
+                    forEachEntry(subAbs, [&](const SceIoDirent& e) {
+                        if (!FIO_S_ISDIR(e.d_stat.st_mode)) return;
+                        std::string childName = e.d_name;
+                        if (childName == "." || childName == "..") return;
+                        std::string childPath = joinDirFile(subAbs, childName.c_str());
+                        if (!findEbootCaseInsensitive(childPath).empty()) {
+                            int childLen = (int)childName.size();
+                            if (childLen > info->longestChildLen) info->longestChildLen = childLen;
+                        }
+                    });
+                }
+            }
+        }
+        state.realCategoryCount = (int)seenCats.size();
+        if (!hasTrimConflict) {
+            for (const auto& info : seenCats) {
+                const int categoryLen = folderModeCategoryNameLenForSettings(info.baseName, prefixSetting, catsortSetting);
+                if (!state.hasTooLongCategory &&
+                    categoryLen + info.longestChildLen > GCL_FOLDERS_MAX_PATH_NAME_SUM) {
+                    state.hasTooLongCategory = true;
+                    state.tooLongCategoryName = info.baseName;
+                }
+            }
+        }
+        return state;
+    }
+    FolderModeConstraints computeFolderModeConstraints(uint32_t uncSetting,
+                                                       uint32_t prefixSetting = gclCfg.prefix,
+                                                       uint32_t catsortSetting = gclCfg.catsort) const {
+        FolderModeConstraints constraints;
+        std::vector<std::string> devices;
+        collectFolderModeDevices(devices);
+        for (const auto& dev : devices) {
+            FolderModeDeviceState state = scanFolderModeStateForDevice(dev, uncSetting, prefixSetting, catsortSetting);
+            const int effectiveCount = state.realCategoryCount + (state.uncEnabled ? 1 : 0);
+            if (effectiveCount > GCL_FOLDERS_MAX_CATEGORIES) {
+                constraints.foldersAllowed = false;
+                constraints.overFolderLimit = true;
+            }
+            if (state.hasTooLongCategory) {
+                constraints.foldersAllowed = false;
+                constraints.tooLongCategory = true;
+                if (constraints.tooLongCategoryName.empty()) {
+                    constraints.tooLongCategoryName = state.tooLongCategoryName;
+                }
+            }
+        }
+        return constraints;
+    }
+    bool uncategorizedChoiceExceedsFoldersLimit(uint32_t uncSetting) const {
+        std::vector<std::string> devices;
+        collectFolderModeDevices(devices);
+        for (const auto& dev : devices) {
+            FolderModeDeviceState state = scanFolderModeStateForDevice(dev, uncSetting);
+            const int effectiveCount = state.realCategoryCount + (state.uncEnabled ? 1 : 0);
+            if (effectiveCount > GCL_FOLDERS_MAX_CATEGORIES) return true;
+        }
+        return false;
+    }
+    bool currentDeviceAtFoldersCategoryLimit() const {
+        if (gclCfg.mode != 2) return false;
+        FolderModeDeviceState state = scanFolderModeStateForDevice(currentDevice, gclCfg.uncategorized);
+        const int effectiveCount = state.realCategoryCount + (state.uncEnabled ? 1 : 0);
+        return effectiveCount >= GCL_FOLDERS_MAX_CATEGORIES;
+    }
+    int maxCategoryBaseCharsForFoldersMode(const std::string& dev, const std::string& categoryDisplayName) const {
+        if (gclCfg.mode != 2) return 64;
+
+        const std::string root = rootPrefix(dev);
+        if (root.empty() || categoryDisplayName.empty()) return GCL_FOLDERS_MAX_PATH_NAME_SUM - 1;
+
+        const char* gameRoots[] = {"PSP/GAME/","PSP/GAME/PSX/","PSP/GAME/Utility/","PSP/GAME150/"};
+        int longestChildLen = 0;
+        for (auto gameRoot : gameRoots) {
+            const std::string catPath = root + std::string(gameRoot) + categoryDisplayName;
+            forEachEntry(catPath, [&](const SceIoDirent& e) {
+                if (!FIO_S_ISDIR(e.d_stat.st_mode)) return;
+                std::string name = e.d_name;
+                if (name == "." || name == "..") return;
+                std::string childPath = joinDirFile(catPath, name.c_str());
+                if (!findEbootCaseInsensitive(childPath).empty()) {
+                    int len = (int)name.size();
+                    if (len > longestChildLen) longestChildLen = len;
+                }
+            });
+        }
+
+        if (longestChildLen < 1) longestChildLen = 1;
+        const std::string baseName = stripCategoryPrefixes(categoryDisplayName);
+        int prefixLen = (int)categoryDisplayName.size() - (int)baseName.size();
+        if (prefixLen < 0) prefixLen = 0;
+        return GCL_FOLDERS_MAX_PATH_NAME_SUM - longestChildLen - prefixLen;
     }
     bool hasSameDeviceMoveCopyDestinationForCurrentSelection() const {
         const bool gclOn = (gclArkOn || gclProOn);
@@ -796,6 +1040,7 @@ private:
     FileOpsMenu* fileMenu = nullptr;
     OptionListMenu* optMenu = nullptr;   // ← NEW: modal option picker
     std::vector<std::string> optMenuOwnedLabels; // keep dynamic labels alive for OptionListMenu
+    std::vector<std::string> optMenuOwnedWarnings; // keep dynamic warning text alive for OptionListMenu
     std::string msgBoxOwnedText; // keep transient MessageBox text alive
     static bool rootPickGcl;             // ← declaration only; no in-class initializer
     static bool rootKeepGclSelection;    // keep selection on "Game Categories:" after toggle
@@ -1242,6 +1487,143 @@ private:
     void markAllDevicesDirty() {
         for (auto &kv : deviceCache) kv.second.dirty = true;
         for (const auto &r : roots) markDeviceDirty(r);
+    }
+    bool trimEbootFolderNamesForFoldersModeOnDevice(const std::string& dev, bool applyChanges = true) {
+        struct RenameOp {
+            std::string fromPath;
+            std::string toPath;
+            std::string tempPath;
+        };
+
+        const std::string root = rootPrefix(dev);
+        if (root.empty()) return true;
+
+        const char* gameRoots[] = {"PSP/GAME/","PSP/GAME/PSX/","PSP/GAME/Utility/","PSP/GAME150/"};
+        const bool patchCurrentCache = !strcasecmp(root.c_str(), rootPrefix(currentDevice).c_str());
+
+        auto makeTempPath = [&](const std::string& dir, const std::vector<std::string>& reservedNames) -> std::string {
+            const unsigned long long seedUs = (unsigned long long)sceKernelGetSystemTimeWide();
+            for (int i = 0; i < 64; ++i) {
+                char tmpLeaf[64];
+                snprintf(tmpLeaf, sizeof(tmpLeaf), ".__kfe_foldtrim_%08X_%02d",
+                         (unsigned)(seedUs & 0xFFFFFFFFu), i);
+                std::string leaf(tmpLeaf);
+                if (hasCaseInsensitiveName(reservedNames, leaf)) continue;
+                std::string tmpPath = joinDirFile(dir, leaf.c_str());
+                SceIoStat st{};
+                if (sceIoGetstat(tmpPath.c_str(), &st) < 0) return tmpPath;
+            }
+            return {};
+        };
+
+        for (auto rootLabel : gameRoots) {
+            const std::string absRoot = root + std::string(rootLabel);
+            std::vector<std::string> categoriesHere;
+            listSubdirs(absRoot, categoriesHere);
+            for (const auto& categoryName : categoriesHere) {
+                if (isBlacklistedCategoryFolderNoRename(rootLabel, categoryName, absRoot)) continue;
+
+                const std::string categoryPath = joinDirFile(absRoot, categoryName.c_str());
+                if (!findEbootCaseInsensitive(categoryPath).empty()) continue;
+
+                const int allowedLeafLen = GCL_FOLDERS_MAX_PATH_NAME_SUM - (int)categoryName.size();
+                if (allowedLeafLen < 1) return false;
+
+                struct ChildEntry {
+                    std::string name;
+                    std::string path;
+                    bool needsTrim = false;
+                };
+
+                std::vector<ChildEntry> allEntries;
+                std::vector<ChildEntry> trimTargets;
+                std::vector<std::string> reservedFinalNames;
+                forEachEntry(categoryPath, [&](const SceIoDirent& e) {
+                    std::string entryName = e.d_name;
+                    if (entryName == "." || entryName == "..") return;
+
+                    ChildEntry child;
+                    child.name = entryName;
+                    child.path = joinDirFile(categoryPath, entryName.c_str());
+                    if (FIO_S_ISDIR(e.d_stat.st_mode) && !findEbootCaseInsensitive(child.path).empty()) {
+                        child.needsTrim = ((int)child.name.size() > allowedLeafLen);
+                    }
+                    allEntries.push_back(child);
+                });
+
+                for (const auto& child : allEntries) {
+                    if (child.needsTrim) trimTargets.push_back(child);
+                    else reservedFinalNames.push_back(child.name);
+                }
+
+                std::sort(trimTargets.begin(), trimTargets.end(),
+                          [](const ChildEntry& a, const ChildEntry& b) {
+                              return strcasecmp(a.name.c_str(), b.name.c_str()) < 0;
+                          });
+
+                std::vector<RenameOp> renameOps;
+                renameOps.reserve(trimTargets.size());
+                for (const auto& child : trimTargets) {
+                    if (isCurrentExecFolderPath(child.path)) return false;
+
+                    std::string targetLeaf;
+                    const int maxLen = std::min((int)child.name.size(), allowedLeafLen);
+                    for (int len = maxLen; len >= 1; --len) {
+                        std::string candidate = child.name.substr(0, (size_t)len);
+                        if (hasCaseInsensitiveName(reservedFinalNames, candidate)) continue;
+                        targetLeaf = candidate;
+                        break;
+                    }
+                    if (targetLeaf.empty()) return false;
+
+                    reservedFinalNames.push_back(targetLeaf);
+                    renameOps.push_back({child.path, joinDirFile(categoryPath, targetLeaf.c_str()), ""});
+                }
+
+                if (renameOps.empty()) continue;
+                if (!applyChanges) continue;
+
+                std::vector<std::string> tempReservedNames;
+                tempReservedNames.reserve(allEntries.size() + renameOps.size());
+                for (const auto& child : allEntries) tempReservedNames.push_back(child.name);
+                for (auto& op : renameOps) {
+                    std::string tempPath = makeTempPath(categoryPath, tempReservedNames);
+                    if (tempPath.empty()) return false;
+                    op.tempPath = tempPath;
+                    tempReservedNames.push_back(basenameOf(tempPath));
+                }
+
+                for (const auto& op : renameOps) {
+                    if (renamePathCaseAware(op.fromPath, op.tempPath) < 0) return false;
+                }
+                for (const auto& op : renameOps) {
+                    if (renamePathCaseAware(op.tempPath, op.toPath) < 0) return false;
+
+                    updateGameFilterOnItemRename(op.fromPath, op.toPath);
+                    if (patchCurrentCache) {
+                        cachePatchRenameItem(op.fromPath, op.toPath, GameItem::EBOOT_FOLDER);
+                    } else {
+                        markDeviceDirty(root);
+                    }
+
+                    if (checked.erase(op.fromPath) > 0) checked.insert(op.toPath);
+                    noIconPaths.erase(op.toPath);
+                }
+            }
+        }
+
+        return true;
+    }
+    bool applyFoldersModeEbootNameLimits() {
+        std::vector<std::string> devices;
+        collectFolderModeDevices(devices);
+        for (const auto& dev : devices) {
+            if (!trimEbootFolderNamesForFoldersModeOnDevice(dev, false)) return false;
+        }
+        for (const auto& dev : devices) {
+            if (!trimEbootFolderNamesForFoldersModeOnDevice(dev, true)) return false;
+        }
+        return true;
     }
 
     void setCategorySortMode(bool enable, bool saveOnExit = false) {

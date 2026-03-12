@@ -160,11 +160,29 @@
             if (!strcasecmp(oldDisplay.c_str(), kCatSettingsLabel) || !strcasecmp(oldDisplay.c_str(), "__GCL_SETTINGS__")) return;
             if (!strcasecmp(oldDisplay.c_str(), "Uncategorized")) return;
 
+            int categoryMaxChars = 64;
+            std::string initialCategoryName = oldDisplay;
+            if (gclCfg.mode == 2) {
+                categoryMaxChars = maxCategoryBaseCharsForFoldersMode(currentDevice, oldDisplay);
+                if (categoryMaxChars < 1) {
+                    drawMessage("Category folder too long", COLOR_RED);
+                    sceKernelDelayThread(700*1000);
+                    return;
+                }
+                initialCategoryName = stripCategoryPrefixes(oldDisplay);
+                if ((int)initialCategoryName.size() > categoryMaxChars) {
+                    initialCategoryName = initialCategoryName.substr(0, (size_t)categoryMaxChars);
+                }
+            }
+
             std::string typed;
-            if (!promptTextOSK("Rename Category", oldDisplay.c_str(), 64, typed)) return;
+            if (!promptTextOSK("Rename Category", initialCategoryName.c_str(), categoryMaxChars, typed)) return;
 
             // Treat user input as a BASE name (strip CAT_/XX if they typed it)
             typed = sanitizeFilename(stripCategoryPrefixes(typed));
+            if (gclCfg.mode == 2 && (int)typed.size() > categoryMaxChars) {
+                typed = typed.substr(0, (size_t)categoryMaxChars);
+            }
             // If base didn’t change, nothing to do
             if (stripCategoryPrefixes(oldDisplay) == typed) return;
             if (isBlacklistedBaseNameFor(currentDevice, typed)) {
@@ -341,8 +359,20 @@
             std::string typed;
             int maxChars = 64;
             std::string initial = base;
-            const int ebootMaxBytes = 31;
+            int ebootMaxBytes = 31;
             if (gi.kind == GameItem::EBOOT_FOLDER) {
+                if (gclCfg.mode == 2) {
+                    std::string parentCategory = parseCategoryFromFullPath(gi.path, gi.kind);
+                    if (!parentCategory.empty() && !strcasecmp(parentCategory.c_str(), "Uncategorized")) {
+                        parentCategory.clear();
+                    }
+                    ebootMaxBytes = GCL_FOLDERS_MAX_PATH_NAME_SUM - (int)parentCategory.size();
+                    if (ebootMaxBytes < 1) {
+                        drawMessage("Category folder too long", COLOR_RED);
+                        sceKernelDelayThread(700*1000);
+                        return;
+                    }
+                }
                 maxChars = ebootMaxBytes;
                 if ((int)initial.size() > ebootMaxBytes) initial = initial.substr(0, ebootMaxBytes);
             }

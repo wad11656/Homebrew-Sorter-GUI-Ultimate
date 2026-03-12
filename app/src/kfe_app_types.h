@@ -2264,7 +2264,13 @@ private:
 // -----------------------------------------------
 
 // -------- Generic Option List Menu (modal with title + description) --------
-struct OptionItem { const char* label; bool disabled; };
+struct OptionItem {
+    const char* label;
+    bool disabled;
+    const char* warning;
+    OptionItem(const char* l, bool d = false, const char* w = nullptr)
+        : label(l), disabled(d), warning(w) {}
+};
 
 class OptionListMenu {
 public:
@@ -2287,6 +2293,10 @@ public:
     void setHeightOverride(int h) {
         _h = h;
         _y = (_screenH - _h) / 2;
+    }
+    void setWidthOverride(int w) {
+        _w = w;
+        _x = (_screenW - _w) / 2;
     }
     void setCheckbox(const char* label, bool checked, bool disabled) {
         _hasCheckbox = true;
@@ -2447,27 +2457,22 @@ public:
                 intraFontPrint(font, (float)(_x + 16), itemY, _items[i].label);
                 if (sel && !disabled) intraFontPrint(font, (float)(_x + 17), itemY, _items[i].label);
 
-                if (_title && !strcmp(_title, "Game Categories") &&
-                    _items[i].label && !strcmp(_items[i].label, "PRO/ME")) {
-                    const char* warnText = "Vita may require \"CAT_\" prefixes";
+                if (_items[i].warning && _items[i].warning[0]) {
+                    const char* warnText = _items[i].warning;
                     const float warnScale = descScale;
                     const float warnIconH = 12.0f;
-                    float warnTextW = _measureText(font, warnScale, warnText);
+                    const float labelW = _measureText(font, itemScale, _items[i].label);
                     float warnIconW = 0.0f;
                     if (warningIconTexture && warningIconTexture->data && warningIconTexture->height > 0) {
                         warnIconW = (float)warningIconTexture->width * (warnIconH / (float)warningIconTexture->height);
                     }
-                    float totalW = warnTextW + (warnIconW > 0.0f ? (warnIconW + 4.0f) : 0.0f);
-                    float rightEdge = (float)(_x + _w - 44);
-                    float warnX = rightEdge - totalW;
-                    float minX = (float)(_x + 88);
-                    if (warnX < minX) warnX = minX;
+                    float warnX = (float)(_x + 16) + labelW + 4.0f;
                     float warnTextY = itemY - 1.0f;
                     if (warnIconW > 0.0f) {
                         _drawTextureScaled(warningIconTexture, warnX, warnTextY - 10.0f, warnIconH, 0xFFFFFFFF);
                         warnX += warnIconW + 4.0f;
                     }
-                    intraFontSetStyle(font, warnScale, COLOR_DESC, 0, 0.f, INTRAFONT_ALIGN_LEFT);
+                    intraFontSetStyle(font, warnScale, disabled ? COLOR_GRAY : COLOR_DESC, 0, 0.f, INTRAFONT_ALIGN_LEFT);
                     intraFontPrint(font, warnX, warnTextY, warnText);
                 }
             }
