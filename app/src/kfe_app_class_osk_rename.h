@@ -305,11 +305,18 @@
             if (!oldExecDir.empty() && !dirExists(oldExecDir)) {
                 oldExecDirGoneAfterRename = true;
             }
+            const bool renamedCurrentAppByCategory = updatedExecBaseFromCategoryRename || oldExecDirGoneAfterRename;
+            if (renamedCurrentAppByCategory) {
+                reloadHomeAnimationsForExec();
+            }
+            bool closedRenameModalBeforeRepopulate = false;
             if (lowMemMode) {
-                std::string key = rootPrefix(currentDevice);
-                if (!key.empty()) deviceCache[key].dirty = true;
-                clearIconFailureMemoization();
-                armIconReloadGraceWindow();
+                delete msgBox;
+                msgBox = nullptr;
+                presentAfterModalClose();
+                closedRenameModalBeforeRepopulate = true;
+                clearDeviceSnapshotCache(currentDevice);
+                prepareUiForLowMemRepopulate(/*dropCarriedIcon=*/true);
                 openDevice(currentDevice);
             } else {
                 buildCategoryRows();
@@ -340,11 +347,10 @@
             sceKernelDelayThread(600*1000);
 
             // Dismiss the “Renaming...” modal, just like item rename does.
-            delete msgBox; 
-            msgBox = nullptr;
-            renderOneFrame();
-            if (updatedExecBaseFromCategoryRename || oldExecDirGoneAfterRename) {
-                reloadHomeAnimationsForExec();
+            if (!closedRenameModalBeforeRepopulate) {
+                delete msgBox;
+                msgBox = nullptr;
+                renderOneFrame();
             }
 
             return;
@@ -462,6 +468,7 @@
                     (gi.kind == GameItem::EBOOT_FOLDER) && isCurrentExecFolderPath(gi.path);
                 if (renamedCurrentApp) {
                     setExecBaseOverrideFromAppDir(newPath);
+                    reloadHomeAnimationsForExec();
                 }
 
                 // If we were showing an ICON0 for this exact item, carry it across the path change.
@@ -479,6 +486,7 @@
                 // after successful sceIoRename(...)
                 std::string keepPath = newPath;
                 const bool forceFullRescanAfterRename = renamedCurrentApp || lowMemMode;
+                bool closedRenameModalBeforeRepopulate = false;
 
                 updateGameFilterOnItemRename(gi.path, newPath);
                 if (!forceFullRescanAfterRename) {
@@ -515,24 +523,20 @@
                     // or when the optional low-memory path is enabled.
                     const bool wasCategoryView = (view == View_CategoryContents);
                     const std::string restoreCategory = currentCategory;
+                    delete msgBox;
+                    msgBox = nullptr;
+                    presentAfterModalClose();
+                    closedRenameModalBeforeRepopulate = true;
                     if (renamedCurrentApp) {
-                        markAllDevicesDirty();
-                        freeSelectionIcon();
-                        noIconPaths.clear();
-                        selectionIconRetryAtUs = 0;
-                        if (iconCarryTex) {
-                            texFree(iconCarryTex);
-                            iconCarryTex = nullptr;
-                            iconCarryForPath.clear();
-                        }
+                        clearAllDeviceSnapshotCaches();
+                        prepareUiForLowMemRepopulate(/*dropCarriedIcon=*/true);
                     } else {
-                        markDeviceDirty(currentDevice);
-                        clearIconFailureMemoization();
+                        clearDeviceSnapshotCache(currentDevice);
+                        prepareUiForLowMemRepopulate(/*dropCarriedIcon=*/!lowMemMode);
                     }
 
                     // Use the exact same full rebuild path as selecting the device from root.
                     openDevice(currentDevice);
-                    if (lowMemMode) armIconReloadGraceWindow();
                     if (wasCategoryView && hasCategories) {
                         openCategory(restoreCategory);
                     }
@@ -544,10 +548,10 @@
                 sceKernelDelayThread(600*1000);
 
                 // NOW dismiss the "Renaming..." modal
-                delete msgBox; msgBox = nullptr;
-                renderOneFrame();
-                if (renamedCurrentApp) {
-                    reloadHomeAnimationsForExec();
+                if (!closedRenameModalBeforeRepopulate) {
+                    delete msgBox;
+                    msgBox = nullptr;
+                    renderOneFrame();
                 }
 
         }

@@ -550,6 +550,7 @@
             updateGameFilterOnItemRename(mv.src, mv.dst);
         }
         const bool forceFullRescanAfterMove = movedCurrentApp;
+        const bool useStrongRepopulateAfterMove = lowMemMode || forceFullRescanAfterMove;
         if (movedCurrentApp && !movedCurrentAppDst.empty()) {
             setExecBaseOverrideFromAppDir(movedCurrentAppDst);
             reloadHomeAnimationsForExec();
@@ -577,7 +578,7 @@
 
         // 2) If we have no snapshots yet (first time ever), build them once and store.
         //    Otherwise we will patch them below.
-        if (lowMemMode) {
+        if (useStrongRepopulateAfterMove) {
             clearDeviceSnapshotCache(srcDev);
             clearDeviceSnapshotCache(dstDev);
             clearPreOpSnapshotState();
@@ -599,7 +600,7 @@
         }
 
         // 3) Patch both snapshots with the results (remove from src; add/rename into dst)
-        if (!forceFullRescanAfterMove && !lowMemMode) {
+        if (!forceFullRescanAfterMove && !useStrongRepopulateAfterMove) {
             for (size_t i = 0; i < movedPairs.size(); ++i) {
                 const std::string& src = movedPairs[i].src;
                 const std::string& dst = movedPairs[i].dst;
@@ -615,23 +616,16 @@
         // Keep them valid for instant reuse
         if (!forceFullRescanAfterMove) {
             const bool changedAnything = (okCount > 0);
-            srcEntry.dirty = lowMemMode ? changedAnything : false;
-            dstEntry.dirty = lowMemMode ? changedAnything : false;
+            srcEntry.dirty = useStrongRepopulateAfterMove ? changedAnything : false;
+            dstEntry.dirty = useStrongRepopulateAfterMove ? changedAnything : false;
         } else {
             srcEntry.dirty = true;
             dstEntry.dirty = true;
         }
 
         // Select the destination category and repaint full contents
-        if (lowMemMode && okCount > 0) {
+        if (useStrongRepopulateAfterMove && okCount > 0) {
             prepareUiForLowMemRepopulate(/*dropCarriedIcon=*/forceFullRescanAfterMove);
-            openDevice(dstDev);
-            if (hasCategories) {
-                const std::string cat = opDestCategory.empty() ? std::string("Uncategorized") : opDestCategory;
-                openCategory(cat);
-            }
-        } else if (forceFullRescanAfterMove) {
-            // Use the exact same slow/full rebuild path as manually selecting a storage device.
             openDevice(dstDev);
             if (hasCategories) {
                 const std::string cat = opDestCategory.empty() ? std::string("Uncategorized") : opDestCategory;
