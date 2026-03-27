@@ -644,6 +644,44 @@
         }
     }
 
+    static std::vector<std::string> gclLowMemModeFilePaths() {
+        std::vector<std::string> paths;
+        auto addUnique = [&](const std::string& baseDir) {
+            if (baseDir.empty()) return;
+            std::string full = baseDir + "low_mem_mode";
+            for (const auto& existing : paths) {
+                if (!strcasecmp(existing.c_str(), full.c_str())) return;
+            }
+            paths.push_back(full);
+        };
+        addUnique(currentExecBaseDir());
+        addUnique(getBaseDir(gExecPath));
+        return paths;
+    }
+
+    void loadLowMemModeSetting() {
+        lowMemMode = false;
+        const std::vector<std::string> paths = gclLowMemModeFilePaths();
+        for (const auto& path : paths) {
+            if (pathExists(path)) {
+                lowMemMode = true;
+                break;
+            }
+        }
+    }
+
+    void saveLowMemModeSetting() {
+        const std::vector<std::string> paths = gclLowMemModeFilePaths();
+        for (const auto& path : paths) {
+            if (lowMemMode) {
+                SceUID fd = sceIoOpen(path.c_str(), PSP_O_WRONLY | PSP_O_CREAT | PSP_O_TRUNC, 0777);
+                if (fd >= 0) sceIoClose(fd);
+            } else if (pathExists(path)) {
+                sceIoRemove(path.c_str());
+            }
+        }
+    }
+
     // --- Standalone blacklist file (app-level, independent of plugin mode) ---
 
     static std::string gclBlacklistFilePath() {
@@ -3001,16 +3039,17 @@
         gclLoadBlacklistFor(currentDevice);
         const auto& blNow = gclBlacklistMap[blacklistRootKey(currentDevice)];
 
-        add(std::string("Category Mode: ")      + gclModeLabel(gclCfg.mode));
-        add(std::string("Category Prefix: ")    + gclPrefixLabel(gclCfg.prefix));
-        add(std::string("Show Uncategorized: ") + gclUncatLabel(gclCfg.uncategorized, isPspGo()));
-        add(std::string("Sort Categories: ")    + gclSortLabel(gclCfg.catsort));
         {
             char buf[64];
             snprintf(buf, sizeof(buf), "Folder Rename Blacklist: %d item%s", (int)blNow.size(),
                      blNow.size() == 1 ? "" : "s");
             add(buf, gclCfg.prefix == 0);
         }
+        add("Low-Mem Mode");
+        add(std::string("Category Mode: ")      + gclModeLabel(gclCfg.mode));
+        add(std::string("Category Prefix: ")    + gclPrefixLabel(gclCfg.prefix));
+        add(std::string("Show Uncategorized: ") + gclUncatLabel(gclCfg.uncategorized, isPspGo()));
+        add(std::string("Sort Categories: ")    + gclSortLabel(gclCfg.catsort));
 
         selectedIndex = std::min(prevSel, (int)entries.size()-1);
         scrollOffset  = std::min(prevOff, std::max(0, (int)entries.size()-1));
@@ -3125,13 +3164,55 @@
     void openGclSettingsScreen(){
             // Load the plugin’s current settings so the list reflects them
             gclLoadConfig();   // ← no args; your function is void gclLoadConfig()
+            loadLowMemModeSetting();
+            gclSettingsLowMemAtOpen = lowMemMode;
 
             // Your existing detection of ARK/PRO enablement, etc.
             gclComputeInitial();
 
             // Build rows (now showing the values from gclite.bin)
             buildGclSettingsRowsFromState();
+            if ((int)entries.size() > 2) {
+                selectedIndex = 2;
+                scrollOffset = 0;
+            }
         }
+
+    void showBlacklistPrefixDisabledModal() {
+        msgBox = new MessageBox(
+            "Prefixes not enabled\n"
+            "Enable the \"Category prefix\" setting to blacklist certain folders from auto-converting/auto-renaming as category folders.",
+            okIconTexture, SCREEN_WIDTH, SCREEN_HEIGHT, 1.0f, 15, "OK",
+            10, 18, 80, 9, 280, 120, PSP_CTRL_CROSS);
+        msgBox->setOkAlignLeft(true);
+        msgBox->setOkPosition(10, 7);
+        msgBox->setOkStyle(0.7f, 0xFFBBBBBB);
+        msgBox->setOkTextOffset(-2, -1);
+        msgBox->setSubtitleStyle(0.7f, 0xFFBBBBBB);
+        msgBox->setSubtitleGapAdjust(-8);
+    }
+
+    MessageBox* pushSizedStatusModal(const char* text, const char* sizeRefText, int widthAdjustPx = 0) {
+        if (msgBox) { delete msgBox; msgBox = nullptr; }
+        const char* ref = (sizeRefText && sizeRefText[0]) ? sizeRefText : text;
+        const float popScale = 1.0f;
+        const int popPadX = 10;
+        const int popPadY = 24;
+        const int popLineH = (int)(24.0f * popScale + 0.5f);
+        const float popTextW = measureTextWidth(popScale, ref);
+        const int popExtraW = 4;
+        int popPanelW = (int)(popTextW + popPadX * 2 + popExtraW + 0.5f) + widthAdjustPx;
+        if (popPanelW < 90) popPanelW = 90;
+        const int popBottom = 14;
+        const int popPanelH = popPadY + popLineH + popBottom - 24;
+        const int popWrapTweak = 32;
+        const int popForcedPxPerChar = 8;
+        msgBox = new MessageBox(text, nullptr, SCREEN_WIDTH, SCREEN_HEIGHT,
+                                popScale, 0, "", popPadX, popPadY, popWrapTweak, popForcedPxPerChar,
+                                popPanelW, popPanelH);
+        renderOneFrame();
+        return msgBox;
+    }
 
 
 
@@ -3141,6 +3222,10 @@
         optMenuOwnedWarnings.clear();
 
         if (idx < (int)rowFlags.size() && (rowFlags[idx] & ROW_DISABLED)) {
+            if (idx == 0) {
+                showBlacklistPrefixDisabledModal();
+                return;
+            }
             drawMessage("Enable CAT prefix first", COLOR_RED);
             sceKernelDelayThread(600*1000);
             return;
@@ -3150,7 +3235,17 @@
         const bool go = isPspGo();
 
         if (idx == 0) {
+            gclBlacklistDirty = false;
+            openBlacklistModal(0);
+        } else if (idx == 1) {
+            lowMemMode = !lowMemMode;
+            saveLowMemModeSetting();
+            buildGclSettingsRowsFromState();
+            selectedIndex = 1;
+            scrollOffset = 0;
+        } else if (idx == 2) {
             // Category mode
+            MessageBox* loadingBox = pushSizedStatusModal("Loading...", "Populating...", -30);
             optMenuOwnedWarnings.clear();
             FolderModeConstraints folderConstraints = computeFolderModeConstraints(gclCfg.uncategorized);
             const char* foldersWarning = "8 Max.|30char Cat.+App Folder len.";
@@ -3167,12 +3262,13 @@
             optMenu->setWidthOverride(352);
             gclPending = GCL_SK_Mode;
             optMenu->setSelected((int)gclCfg.mode);
+            popModal(loadingBox);
 
             // NEW: Prime & debounce so held X/O won't auto-activate the choice
             SceCtrlData now{}; sceCtrlReadBufferPositive(&now, 1);
             optMenu->primeButtons(now.Buttons);
             inputWaitRelease = true;
-        } else if (idx == 1) {
+        } else if (idx == 3) {
             // Category prefix
             const bool disableCatPrefix =
                 (gclCfg.mode == 2) && !computeFolderModeConstraints(gclCfg.uncategorized, 1, gclCfg.catsort).foldersAllowed;
@@ -3187,7 +3283,7 @@
             SceCtrlData now{}; sceCtrlReadBufferPositive(&now, 1);
             optMenu->primeButtons(now.Buttons);
             inputWaitRelease = true;
-        } else if (idx == 2) {
+        } else if (idx == 4) {
             // Show uncategorized
             const bool disableMsUncat = (gclCfg.mode == 2) && uncategorizedChoiceExceedsFoldersLimit(1);
             const bool disableEfUncat = (gclCfg.mode == 2) && uncategorizedChoiceExceedsFoldersLimit(2);
@@ -3208,7 +3304,7 @@
             SceCtrlData now{}; sceCtrlReadBufferPositive(&now, 1);
             optMenu->primeButtons(now.Buttons);
             inputWaitRelease = true;
-        } else if (idx == 3) {
+        } else if (idx == 5) {
             // Sort categories
             const bool disableSortYes =
                 (gclCfg.mode == 2) && !computeFolderModeConstraints(gclCfg.uncategorized, gclCfg.prefix, 1).foldersAllowed;
@@ -3221,9 +3317,6 @@
             SceCtrlData now{}; sceCtrlReadBufferPositive(&now, 1);
             optMenu->primeButtons(now.Buttons);
             inputWaitRelease = true;
-        } else if (idx == 4) {
-            gclBlacklistDirty = false;
-            openBlacklistModal(0);
         }
     }
 
@@ -3931,6 +4024,16 @@
             }
             renderOneFrame();
             renderOneFrame();  // Double render to clear both buffers and prevent text artifacting
+            if (pendingLowMemHardResetBeforeScan) {
+                pendingLowMemHardResetBeforeScan = false;
+                resetLists();
+                clearUI();
+                showRoots = false;
+                moving = false;
+                // Keep the already-rendered frame on screen while scanning.
+                scanAnimActive = false;
+                scanAnimNextUs = 0;
+            }
             if (scanAnimActive) {
                 unsigned long long delay = gPopAnimMinDelayUs ? gPopAnimMinDelayUs : 100000ULL;
                 scanAnimNextUs = (unsigned long long)sceKernelGetSystemTimeWide() + delay;
@@ -3958,6 +4061,7 @@
             delete msgBox; msgBox = nullptr;
         } else {
             // Instant reuse of cached snapshot (no message box)
+            pendingLowMemHardResetBeforeScan = false;
             restoreScan(dc.snap);
             moving = false;
         }

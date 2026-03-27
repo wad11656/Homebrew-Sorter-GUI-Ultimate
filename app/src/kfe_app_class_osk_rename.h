@@ -305,7 +305,15 @@
             if (!oldExecDir.empty() && !dirExists(oldExecDir)) {
                 oldExecDirGoneAfterRename = true;
             }
-            buildCategoryRows();
+            if (lowMemMode) {
+                std::string key = rootPrefix(currentDevice);
+                if (!key.empty()) deviceCache[key].dirty = true;
+                clearIconFailureMemoization();
+                armIconReloadGraceWindow();
+                openDevice(currentDevice);
+            } else {
+                buildCategoryRows();
+            }
 
 
             // Select the renamed category and keep it highlighted
@@ -457,15 +465,8 @@
                 }
 
                 // If we were showing an ICON0 for this exact item, carry it across the path change.
-                // (Don't carry the placeholder; only a real texture.)
-                if (!renamedCurrentApp &&
-                    selectionIconTex && selectionIconTex != placeholderIconTexture &&
-                    selectionIconKey == gi.path) {
-                    iconCarryTex = selectionIconTex;      // do NOT free; we'll reattach after refresh
-                    iconCarryForPath = newPath;
-                    selectionIconTex = nullptr;
-                    selectionIconKey.clear();
-                }
+                // Also remap any recent-icon cache entry so we can recover if memory is tight.
+                if (lowMemMode && !renamedCurrentApp) carryVisibleSelectionIconToPath(gi.path, newPath);
                 // Make sure we don't accidentally block future loads for the new path.
                 noIconPaths.erase(newPath);
 
@@ -477,7 +478,7 @@
 
                 // after successful sceIoRename(...)
                 std::string keepPath = newPath;
-                const bool forceFullRescanAfterRename = renamedCurrentApp;
+                const bool forceFullRescanAfterRename = renamedCurrentApp || lowMemMode;
 
                 updateGameFilterOnItemRename(gi.path, newPath);
                 if (!forceFullRescanAfterRename) {
@@ -505,24 +506,33 @@
                             buildCategoryRows();
                         }
                     }
+                    if (lowMemMode) {
+                        clearIconFailureMemoization();
+                        armIconReloadGraceWindow();
+                    }
                 } else {
-                    // Renaming the running app can stale icon/path memoization.
-                    // Force a clean in-memory rebuild from disk.
+                    // Force a clean in-memory rebuild from disk when the running app moved
+                    // or when the optional low-memory path is enabled.
                     const bool wasCategoryView = (view == View_CategoryContents);
                     const std::string restoreCategory = currentCategory;
-                    markAllDevicesDirty();
-                    freeSelectionIcon();
-                    noIconPaths.clear();
-                    selectionIconRetryAtUs = 0;
-                    if (iconCarryTex) {
-                        texFree(iconCarryTex);
-                        iconCarryTex = nullptr;
-                        iconCarryForPath.clear();
+                    if (renamedCurrentApp) {
+                        markAllDevicesDirty();
+                        freeSelectionIcon();
+                        noIconPaths.clear();
+                        selectionIconRetryAtUs = 0;
+                        if (iconCarryTex) {
+                            texFree(iconCarryTex);
+                            iconCarryTex = nullptr;
+                            iconCarryForPath.clear();
+                        }
+                    } else {
+                        markDeviceDirty(currentDevice);
+                        clearIconFailureMemoization();
                     }
 
                     // Use the exact same full rebuild path as selecting the device from root.
                     openDevice(currentDevice);
-                    armIconReloadGraceWindow();
+                    if (lowMemMode) armIconReloadGraceWindow();
                     if (wasCategoryView && hasCategories) {
                         openCategory(restoreCategory);
                     }

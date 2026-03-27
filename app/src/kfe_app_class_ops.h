@@ -124,8 +124,17 @@
 
 
         delete msgBox; msgBox = nullptr;
+        if (lowMemMode) presentAfterModalClose();
         logf("=== performCopy: done ok=%d fail=%d ===", okCount, failCount);
         logClose();
+
+        if (lowMemMode && !copiedPairs.empty()) {
+            carryVisibleSelectionIconToPath(copiedPairs.back().first, copiedPairs.back().second);
+        }
+        if (lowMemMode && okCount > 0) {
+            clearIconFailureMemoization();
+            armIconReloadGraceWindow();
+        }
 
         // ---- Refresh rules for COPY (compute BEFORE restoring op state) ----
         const std::string srcDev = preOpDevice;                      // "ms0:/" or "ef0:/"
@@ -149,25 +158,39 @@
         // --------------------------------------------------------------------
 
         auto &dstEntry = deviceCache[rootPrefix(dstDev)];
-        if (dstEntry.snap.flatAll.empty() && dstEntry.snap.uncategorized.empty()
-            && dstEntry.snap.categories.empty() && dstEntry.snap.categoryNames.empty()) {
-            scanDevice(dstDev);
-            snapshotCurrentScan(dstEntry.snap);
-            dstEntry.dirty = false;
-        }
+        if (lowMemMode) {
+            clearDeviceSnapshotCache(dstDev);
+            clearPreOpSnapshotState();
+        } else {
+            if (dstEntry.snap.flatAll.empty() && dstEntry.snap.uncategorized.empty()
+                && dstEntry.snap.categories.empty() && dstEntry.snap.categoryNames.empty()) {
+                scanDevice(dstDev);
+                snapshotCurrentScan(dstEntry.snap);
+                dstEntry.dirty = false;
+            }
 
-        // Insert each successfully copied item into destination snapshot
-        for (size_t i = 0; i < copiedPairs.size(); ++i) {
-            const std::string& s = copiedPairs[i].first;
-            const std::string& d = copiedPairs[i].second;
-            const GameItem::Kind k = copiedKinds[i];
-            cacheApplyMoveOrCopy(dstEntry.snap, dstEntry.snap, s, d, k, /*isMove*/false);
+            // Insert each successfully copied item into destination snapshot
+            for (size_t i = 0; i < copiedPairs.size(); ++i) {
+                const std::string& s = copiedPairs[i].first;
+                const std::string& d = copiedPairs[i].second;
+                const GameItem::Kind k = copiedKinds[i];
+                cacheApplyMoveOrCopy(dstEntry.snap, dstEntry.snap, s, d, k, /*isMove*/false);
+            }
         }
-        dstEntry.dirty = false;
+        dstEntry.dirty = lowMemMode ? (okCount > 0) : false;
 
         if (!canceledCritical) {
-            // Jump to destination view immediately (match Move behavior)
-            showDestinationCategoryNow(dstDev, opDestCategory);
+            if (lowMemMode && okCount > 0) {
+                prepareUiForLowMemRepopulate(/*dropCarriedIcon=*/false);
+                openDevice(dstDev);
+                if (hasCategories) {
+                    const std::string cat = opDestCategory.empty() ? std::string("Uncategorized") : opDestCategory;
+                    openCategory(cat);
+                }
+            } else {
+                // Jump to destination view immediately (match Move behavior)
+                showDestinationCategoryNow(dstDev, opDestCategory);
+            }
 
             // optional: focus the last copied item
             if (!copiedPairs.empty()) {
@@ -182,6 +205,7 @@
         opSrcCount = 0;
         opSrcTotalBytes = 0;
         opDestDevice.clear(); opDestCategory.clear();
+        if (lowMemMode) clearPreOpSnapshotState();
 
         char res[64];
         if (canceledCritical) {
@@ -355,7 +379,6 @@
 
 
     void cancelActionRestore() {
-        hasPreOpScan = false;
         // Clear op state
         actionMode = AM_None;
         opPhase    = OP_None;
@@ -380,6 +403,7 @@
         }
         selectedIndex = preOpSel;
         scrollOffset  = preOpScroll;
+        if (lowMemMode) clearPreOpSnapshotState();
     }
 
     void showConfirmAndRun() {
@@ -515,6 +539,7 @@
 
 
         delete msgBox; msgBox = nullptr;
+        if (lowMemMode) presentAfterModalClose();
         logf("=== performMove: done ok=%d fail=%d ===", okCount, failCount);
         logClose();
 
@@ -552,7 +577,11 @@
 
         // 2) If we have no snapshots yet (first time ever), build them once and store.
         //    Otherwise we will patch them below.
-        if (!forceFullRescanAfterMove) {
+        if (lowMemMode) {
+            clearDeviceSnapshotCache(srcDev);
+            clearDeviceSnapshotCache(dstDev);
+            clearPreOpSnapshotState();
+        } else if (!forceFullRescanAfterMove) {
             if (srcEntry.snap.flatAll.empty() && srcEntry.snap.uncategorized.empty()
                 && srcEntry.snap.categories.empty() && srcEntry.snap.categoryNames.empty()) {
                 scanDevice(srcDev);                 // one-time build
@@ -570,7 +599,7 @@
         }
 
         // 3) Patch both snapshots with the results (remove from src; add/rename into dst)
-        if (!forceFullRescanAfterMove) {
+        if (!forceFullRescanAfterMove && !lowMemMode) {
             for (size_t i = 0; i < movedPairs.size(); ++i) {
                 const std::string& src = movedPairs[i].src;
                 const std::string& dst = movedPairs[i].dst;
@@ -578,20 +607,32 @@
                 cacheApplyMoveOrCopy(srcEntry.snap, dstEntry.snap, src, dst, k, /*isMove*/true);
             }
         }
+        if (lowMemMode) {
+            for (size_t i = 0; i < movedPairs.size(); ++i) {
+                carryVisibleSelectionIconToPath(movedPairs[i].src, movedPairs[i].dst);
+            }
+        }
         // Keep them valid for instant reuse
         if (!forceFullRescanAfterMove) {
-            srcEntry.dirty = false;
-            dstEntry.dirty = false;
+            const bool changedAnything = (okCount > 0);
+            srcEntry.dirty = lowMemMode ? changedAnything : false;
+            dstEntry.dirty = lowMemMode ? changedAnything : false;
         } else {
             srcEntry.dirty = true;
             dstEntry.dirty = true;
         }
 
         // Select the destination category and repaint full contents
-        if (forceFullRescanAfterMove) {
+        if (lowMemMode && okCount > 0) {
+            prepareUiForLowMemRepopulate(/*dropCarriedIcon=*/forceFullRescanAfterMove);
+            openDevice(dstDev);
+            if (hasCategories) {
+                const std::string cat = opDestCategory.empty() ? std::string("Uncategorized") : opDestCategory;
+                openCategory(cat);
+            }
+        } else if (forceFullRescanAfterMove) {
             // Use the exact same slow/full rebuild path as manually selecting a storage device.
             openDevice(dstDev);
-            armIconReloadGraceWindow();
             if (hasCategories) {
                 const std::string cat = opDestCategory.empty() ? std::string("Uncategorized") : opDestCategory;
                 openCategory(cat);
@@ -612,6 +653,7 @@
         opSrcCount = 0;
         opSrcTotalBytes = 0;
         opDestDevice.clear(); opDestCategory.clear();
+        if (lowMemMode) clearPreOpSnapshotState();
 
         // Toast
         char res[64];
@@ -632,7 +674,7 @@
     // Input handling
     // -----------------------------------------------------------
 public:
-    KernelFileExplorer(){ detectRoots(); scrubHiddenAppFiltersOnStartup(); buildRootRows(); }
+    KernelFileExplorer(){ detectRoots(); scrubHiddenAppFiltersOnStartup(); loadLowMemModeSetting(); buildRootRows(); }
     ~KernelFileExplorer(){
         setMsLedSuppressed(false);
         if (font) intraFontUnload(font);

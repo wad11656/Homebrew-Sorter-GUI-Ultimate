@@ -55,6 +55,7 @@ private:
     int scrollOffset  = 0;
     bool scanAnimActive = false;
     unsigned long long scanAnimNextUs = 0;
+    bool pendingLowMemHardResetBeforeScan = false;
 
     // Paths currently checked
     std::unordered_set<std::string> checked;
@@ -63,6 +64,7 @@ private:
     bool        gclArkOn = false;
     bool        gclProOn = false;
     bool        gclLegacyMode = false;  // true when using v1.6/v1.7 legacy plugin
+    bool        lowMemMode = false;
     bool        gclLegacyFilterLoaded = false;
     std::vector<std::string> gclLegacyFilterCache;  // cached legacy filter names
     std::string gclDevice;   // "ef0:/" on PSP Go if present; else "ms0:/"
@@ -555,7 +557,6 @@ private:
             }
             noIconPaths.swap(remapped);
         }
-
         // --- Carry currently selected ICON0 across the key rewrite ---
         if (!oldToNew.empty()
             && selectionIconTex
@@ -1048,9 +1049,10 @@ private:
     bool bulkSquareUncheck = false;
 
     // Which Categories Lite setting is currently being edited
-    enum GclSettingKey { GCL_SK_None = -1, GCL_SK_Mode = 0, GCL_SK_Prefix = 1, GCL_SK_Uncat = 2, GCL_SK_Sort = 3, GCL_SK_Blacklist = 4 };
+    enum GclSettingKey { GCL_SK_None = -1, GCL_SK_LowMem = 0, GCL_SK_Mode = 1, GCL_SK_Prefix = 2, GCL_SK_Uncat = 3, GCL_SK_Sort = 4, GCL_SK_Blacklist = 5 };
     static GclSettingKey gclPending;
     bool gclBlacklistDirty = false;
+    bool gclSettingsLowMemAtOpen = false;
     bool gclHardCheckDone = false;
     bool gclDeferredLegacyConvertPending = false;
     enum RunningAppWarningAction { RAW_None, RAW_Rename, RAW_Move, RAW_Copy };
@@ -1168,6 +1170,31 @@ private:
     void armIconReloadGraceWindow(unsigned int ms = 2000) {
         noIconMemoGraceUntilUs = (unsigned long long)sceKernelGetSystemTimeWide() +
                                  (unsigned long long)ms * 1000ULL;
+    }
+
+    static bool samePathKey(const std::string& a, const std::string& b) {
+        return !strcasecmp(a.c_str(), b.c_str());
+    }
+
+    void clearIconFailureMemoization() {
+        noIconPaths.clear();
+        selectionIconRetryAtUs = 0;
+    }
+
+    void carryVisibleSelectionIconToPath(const std::string& oldPath, const std::string& newPath) {
+        if (oldPath.empty() || newPath.empty()) return;
+
+        noIconPaths.erase(newPath);
+
+        if (!selectionIconTex || selectionIconTex == placeholderIconTexture || selectionIconKey.empty()) return;
+        if (!samePathKey(selectionIconKey, oldPath)) return;
+
+        if (iconCarryTex && iconCarryTex != selectionIconTex) texFree(iconCarryTex);
+        iconCarryTex = selectionIconTex;
+        iconCarryForPath = newPath;
+        selectionIconTex = nullptr;
+        selectionIconKey.clear();
+        selectionIconRetryAtUs = 0;
     }
 
     // Apply current on-screen order of categories to XX numbering and on-disk names.
@@ -1317,7 +1344,6 @@ private:
                 }
                 noIconPaths.swap(remapped);
             }
-
             // --- Carry currently selected ICON0 across the key rewrite ---
             if (!oldToNew.empty()
                 && selectionIconTex
@@ -1350,7 +1376,6 @@ private:
                 }
                 noIconPaths.swap(remapped);
             }
-
             // --- NEW: carry the currently selected ICON0 across the key rewrite
             if (!oldToNew.empty() && selectionIconTex && selectionIconTex != placeholderIconTexture && !selectionIconKey.empty()) {
                 std::string newKey = selectionIconKey;
@@ -1469,6 +1494,24 @@ private:
     ScanSnapshot preOpScan{};
     bool hasPreOpScan = false;
 
+    static void clearScanSnapshot(ScanSnapshot& snap) {
+        ScanSnapshot empty;
+        snap.categories.swap(empty.categories);
+        snap.uncategorized.swap(empty.uncategorized);
+        snap.flatAll.swap(empty.flatAll);
+        snap.categoryNames.swap(empty.categoryNames);
+        snap.hasCategories = false;
+    }
+
+    void clearPreOpSnapshotState() {
+        clearScanSnapshot(preOpScan);
+        hasPreOpScan = false;
+        preOpDevice.clear();
+        preOpCategory.clear();
+        preOpSel = 0;
+        preOpScroll = 0;
+    }
+
     // --- New: cache per device so switching devices is instant ---
     struct DeviceCacheEntry {
         ScanSnapshot snap;
@@ -1481,6 +1524,25 @@ private:
     void markDeviceDirty(const std::string& devOrPath) {
         std::string key = rootPrefix(devOrPath);  // accepts "ms0:/", "ef0:/", or any full path
         if (!key.empty()) deviceCache[key].dirty = true;
+    }
+
+    void clearDeviceSnapshotCache(const std::string& devOrPath) {
+        std::string key = rootPrefix(devOrPath);
+        if (key.empty()) return;
+        DeviceCacheEntry& entry = deviceCache[key];
+        clearScanSnapshot(entry.snap);
+        entry.dirty = true;
+        entry.lastTick = 0;
+    }
+
+    void clearAllDeviceSnapshotCaches() {
+        deviceCache.clear();
+        for (const auto& r : roots) {
+            std::string key = rootPrefix(r);
+            if (!key.empty()) deviceCache[key].dirty = true;
+        }
+        std::string currentKey = rootPrefix(currentDevice);
+        if (!currentKey.empty()) deviceCache[currentKey].dirty = true;
     }
 
     // Marks all device cache lines dirty so next device entry forces a rescan.
@@ -1765,6 +1827,22 @@ private:
         opPhase     = OP_None;
         moving      = false;
         freeSelectionIcon();
+    }
+
+    void prepareUiForLowMemRepopulate(bool dropCarriedIcon = true) {
+        clearPreOpSnapshotState();
+        freeSelectionIcon();
+        freeCategoryIcon();
+        clearIconFailureMemoization();
+        if (dropCarriedIcon) {
+            if (iconCarryTex) {
+                texFree(iconCarryTex);
+                iconCarryTex = nullptr;
+            }
+            iconCarryForPath.clear();
+        }
+        pendingLowMemHardResetBeforeScan = true;
+        armIconReloadGraceWindow();
     }
 
     void snapshotCurrentScan(ScanSnapshot& out) const {
@@ -2089,7 +2167,6 @@ private:
             }
             noIconPaths.swap(remapped);
         }
-
         // NEW: carry selected icon if it’s inside the renamed category
         if (selectionIconTex && selectionIconTex != placeholderIconTexture && !selectionIconKey.empty()) {
             std::string newKey = selectionIconKey;
@@ -2522,7 +2599,7 @@ private:
         drawRect(0, 0, SCREEN_WIDTH, bannerH, COLOR_BANNER);
 
         std::string leftLabel = "Homebrew Sorter Ultimate";
-        std::string leftLabelMutedSuffix = " v1.24";
+        std::string leftLabelMutedSuffix = " v1.25";
         Texture* deviceIcon = nullptr;
         bool underlineLabel = false;
         const bool opHeader = (actionMode != AM_None &&
@@ -2929,6 +3006,11 @@ private:
         sceGuDrawArray(GU_SPRITES, GU_TEXTURE_32BITF | GU_COLOR_8888 |
                                   GU_VERTEX_32BITF  | GU_TRANSFORM_2D, 2, nullptr, vtx);
         sceGuDisable(GU_TEXTURE_2D);
+    }
+
+    void presentAfterModalClose() {
+        renderOneFrame();
+        renderOneFrame();
     }
 
     void drawRootMenu() {
@@ -3729,30 +3811,32 @@ private:
         const int rowCount = (int)entries.size();
         const float top = panelY + 4.0f + CAT_LIST_OFFSET_Y;
         const float rowH = CAT_ROW_H + 3.0f;
-        const int visibleRows = gclSettingsVisibleRows();
-        int maxScroll = rowCount - visibleRows;
-        if (maxScroll < 0) maxScroll = 0;
-        if (scrollOffset > maxScroll) scrollOffset = maxScroll;
-        if (scrollOffset < 0) scrollOffset = 0;
-        const int startRow = scrollOffset;
-        const int endRow = std::min(rowCount, startRow + visibleRows);
         const float iconGap = 10.0f;
+        const float textLeftX = panelX + 32.0f;
+        const float blacklistCenterY = top + rowH * 0.5f;
+        const float lowMemCenterY = top + rowH * 1.5f;
+        const int lineY = (int)(top + rowH * 2.0f - 2.0f);
+        const int lineX = (int)(panelX + 13.0f);
+        const int lineW = (int)(panelW - 25.0f);
+        const float scrollTrackX = panelX + panelW - 6.0f;
+        const float listTop = (float)lineY + 7.0f;
+        const int rowStart = (rowCount > 2) ? 2 : rowCount;
+        const int listCount = rowCount - rowStart;
+        const int visibleRows = listCount;
+        const int maxScroll = 0;
+        scrollOffset = 0;
+        const int startRow = rowStart;
+        const int endRow = rowCount;
 
-        for (int i = startRow; i < endRow; ++i) {
+        auto drawStandardRow = [&](int i, float centerY) {
             const char* name = entries[i].d_name;
             const bool sel = (i == selectedIndex);
             const bool disabled = (i < (int)rowFlags.size() && (rowFlags[i] & ROW_DISABLED));
-
-            (void)disabled;
             unsigned shadowCol = sel ? COLOR_WHITE : 0x40000000;
             const unsigned labelCol = sel ? COLOR_BLACK : (disabled ? COLOR_GRAY : keyTextCol);
-
-            const int rowIndex = i - startRow;
-            const float centerY = top + rowH * (rowIndex + 0.5f);
             const float scale = 0.57f;
             const float lineH = 16.0f * scale;
             const float baseline = centerY + (lineH * 0.25f) - 2.0f;
-            const float textLeftX = panelX + 32.0f;
             const float iconH = 15.0f;
 
             const bool isBlacklistRow = (!strncasecmp(name, "Folder Rename Blacklist:", 24));
@@ -3781,14 +3865,64 @@ private:
             } else {
                 drawTextStyled(textLeftX, baseline, name, scale, labelCol, shadowCol, INTRAFONT_ALIGN_LEFT, false);
             }
+        };
+
+        if (rowCount > 0) drawStandardRow(0, blacklistCenterY);
+
+        if (rowCount > 1) {
+            const bool sel = (selectedIndex == 1);
+            const int cbSize = 11;
+            const int cbX = (int)(textLeftX - 20.0f);
+            const int boxY = (int)(lowMemCenterY - (cbSize * 0.5f) - 4.0f);
+            const unsigned cbBorderColor = COLOR_WHITE;
+            const unsigned cbLabelColor = sel ? COLOR_BLACK : 0xFFBBBBBB;
+            const unsigned cbShadow = sel ? COLOR_WHITE : 0x40000000;
+            const unsigned suffixColor = 0xFFBBBBBB;
+            const unsigned suffixShadow = 0x40000000;
+            const float mainScale = 0.57f;
+            const float suffixScale = 0.5f;
+            const float mainLineH = 16.0f * mainScale;
+            const float mainBaseline = lowMemCenterY + (mainLineH * 0.25f) - 2.0f;
+            const float suffixBaseline = mainBaseline + 0.0f;
+            const char* mainLabel = "Low-Mem Mode";
+            const char* suffixLabel = "(Try if crashes/icons missing)";
+            const float labelX = (float)(cbX + cbSize + 4);
+
+            drawRect(cbX, boxY, cbSize, 1, cbBorderColor);
+            drawRect(cbX, boxY + cbSize - 1, cbSize, 1, cbBorderColor);
+            drawRect(cbX, boxY, 1, cbSize, cbBorderColor);
+            drawRect(cbX + cbSize - 1, boxY, 1, cbSize, cbBorderColor);
+            if (lowMemMode) {
+                drawRect(cbX + 2, boxY + 2, cbSize - 4, cbSize - 4, cbBorderColor);
+            }
+
+            drawTextStyled(labelX, mainBaseline, mainLabel,
+                           mainScale, cbLabelColor, cbShadow, INTRAFONT_ALIGN_LEFT, false);
+            const float mainLabelW = measureTextWidth(mainScale, mainLabel);
+            drawTextStyled(labelX + mainLabelW + 3.0f, suffixBaseline, suffixLabel,
+                           suffixScale, suffixColor, suffixShadow, INTRAFONT_ALIGN_LEFT, false);
+            if (sel) {
+                drawTextStyled(labelX + 1.0f, mainBaseline, mainLabel,
+                               mainScale, cbLabelColor, cbShadow, INTRAFONT_ALIGN_LEFT, false);
+            }
         }
 
-        if (rowCount > visibleRows) {
-            const float trackX = panelX + panelW - 6.0f;
-            const float trackY = top;
+        if (lineW > 0) {
+            drawHFadeLine(lineX, lineY, lineW, 1, 0xA0, 20, 0x00C0C0C0);
+        }
+
+        for (int i = startRow; i < endRow; ++i) {
+            const int rowIndex = i - rowStart;
+            const float centerY = listTop + rowH * (rowIndex + 0.5f);
+            drawStandardRow(i, centerY);
+        }
+
+        if (listCount > visibleRows) {
+            const float trackX = scrollTrackX;
+            const float trackY = listTop;
             const float trackH = rowH * visibleRows;
             drawRect((int)trackX, (int)trackY, 2, (int)trackH, 0x40000000);
-            float thumbH = trackH * ((float)visibleRows / (float)rowCount);
+            float thumbH = trackH * ((float)visibleRows / (float)listCount);
             if (thumbH < 6.0f) thumbH = 6.0f;
             const float t = (maxScroll > 0) ? ((float)scrollOffset / (float)maxScroll) : 0.0f;
             const float thumbY = trackY + t * (trackH - thumbH);

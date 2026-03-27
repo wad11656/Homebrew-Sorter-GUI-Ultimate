@@ -570,6 +570,12 @@
                 } else {
                     if (view == View_GclSettings) {
                         int j = selectedIndex - 1;
+                        if (j >= 0 && j < (int)rowFlags.size() &&
+                            (rowFlags[j] & ROW_DISABLED) &&
+                            !strncasecmp(entries[j].d_name, "Folder Rename Blacklist:", 24)) {
+                            showBlacklistPrefixDisabledModal();
+                            return;
+                        }
                         while (j >= 0 && (rowFlags[j] & ROW_DISABLED)) j--;
                         if (j >= 0) {
                             selectedIndex = j;
@@ -834,17 +840,26 @@
             if (showRoots) {
                 // nothing
             } else if (view == View_GclSettings) {
+                const bool enableLowMemRescan = (!gclSettingsLowMemAtOpen && lowMemMode);
                 MessageBox* retBox = pushReturningModal();
                 if (gclBlacklistDirty) {
                     rescanCurrentDeviceAfterBlacklist();
                     gclBlacklistDirty = false;
+                    buildCategoryRows();
+                } else if (enableLowMemRescan) {
+                    popModal(retBox);
+                    retBox = nullptr;
+                    clearAllDeviceSnapshotCaches();
+                    prepareUiForLowMemRepopulate(/*dropCarriedIcon=*/true);
+                    openDevice(currentDevice);
                 } else {
                     patchCategoryCacheFromSettings();
+                    buildCategoryRows();      // Back to categories
                 }
-                buildCategoryRows();      // Back to categories
                 selectedIndex = 0;        // highlight "Category Settings"
                 scrollOffset  = 0;        // ensure it's visible at the top
                 popModal(retBox);
+                gclSettingsLowMemAtOpen = lowMemMode;
                 inputWaitRelease = true;
                 return;                   // stop further input from this frame
             } else if (view == View_CategoryContents) {
