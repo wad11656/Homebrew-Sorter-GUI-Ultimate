@@ -3179,10 +3179,11 @@
 
     void showBlacklistPrefixDisabledModal() {
         msgBox = new MessageBox(
-            "Prefixes not enabled\n"
-            "Enable the \"Category prefix\" setting to blacklist certain folders from auto-converting/auto-renaming as category folders.",
+            R"(Prefixes not enabled
+When "Category prefix" is enabled, use this blacklist to block certain folders from auto-converting/renaming to
+"CAT_..." Category folders.)",
             okIconTexture, SCREEN_WIDTH, SCREEN_HEIGHT, 1.0f, 15, "OK",
-            10, 18, 80, 9, 280, 120, PSP_CTRL_CROSS);
+            10, 18, 106, 9, 294, 120, PSP_CTRL_CROSS);
         msgBox->setOkAlignLeft(true);
         msgBox->setOkPosition(10, 7);
         msgBox->setOkStyle(0.7f, 0xFFBBBBBB);
