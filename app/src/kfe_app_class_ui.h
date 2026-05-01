@@ -3814,13 +3814,12 @@ private:
         const float iconGap = 10.0f;
         const float textLeftX = panelX + 32.0f;
         const float blacklistCenterY = top + rowH * 0.5f;
-        const float lowMemCenterY = top + rowH * 1.5f;
-        const int lineY = (int)(top + rowH * 2.0f - 2.0f);
+        const int lineY = (int)(top + rowH * 1.0f - 2.0f);
         const int lineX = (int)(panelX + 13.0f);
         const int lineW = (int)(panelW - 25.0f);
         const float scrollTrackX = panelX + panelW - 6.0f;
         const float listTop = (float)lineY + 7.0f;
-        const int rowStart = (rowCount > 2) ? 2 : rowCount;
+        const int rowStart = (rowCount > 1) ? 1 : rowCount;
         const int listCount = rowCount - rowStart;
         const int visibleRows = listCount;
         const int maxScroll = 0;
@@ -3868,44 +3867,6 @@ private:
         };
 
         if (rowCount > 0) drawStandardRow(0, blacklistCenterY);
-
-        if (rowCount > 1) {
-            const bool sel = (selectedIndex == 1);
-            const int cbSize = 11;
-            const int cbX = (int)(textLeftX - 20.0f);
-            const int boxY = (int)(lowMemCenterY - (cbSize * 0.5f) - 4.0f);
-            const unsigned cbBorderColor = COLOR_WHITE;
-            const unsigned cbLabelColor = sel ? COLOR_BLACK : 0xFFBBBBBB;
-            const unsigned cbShadow = sel ? COLOR_WHITE : 0x40000000;
-            const unsigned suffixColor = 0xFFBBBBBB;
-            const unsigned suffixShadow = 0x40000000;
-            const float mainScale = 0.57f;
-            const float suffixScale = 0.5f;
-            const float mainLineH = 16.0f * mainScale;
-            const float mainBaseline = lowMemCenterY + (mainLineH * 0.25f) - 2.0f;
-            const float suffixBaseline = mainBaseline + 0.0f;
-            const char* mainLabel = "Low-Mem Mode";
-            const char* suffixLabel = "(Try if crashes/icons missing)";
-            const float labelX = (float)(cbX + cbSize + 4);
-
-            drawRect(cbX, boxY, cbSize, 1, cbBorderColor);
-            drawRect(cbX, boxY + cbSize - 1, cbSize, 1, cbBorderColor);
-            drawRect(cbX, boxY, 1, cbSize, cbBorderColor);
-            drawRect(cbX + cbSize - 1, boxY, 1, cbSize, cbBorderColor);
-            if (lowMemMode) {
-                drawRect(cbX + 2, boxY + 2, cbSize - 4, cbSize - 4, cbBorderColor);
-            }
-
-            drawTextStyled(labelX, mainBaseline, mainLabel,
-                           mainScale, cbLabelColor, cbShadow, INTRAFONT_ALIGN_LEFT, false);
-            const float mainLabelW = measureTextWidth(mainScale, mainLabel);
-            drawTextStyled(labelX + mainLabelW + 3.0f, suffixBaseline, suffixLabel,
-                           suffixScale, suffixColor, suffixShadow, INTRAFONT_ALIGN_LEFT, false);
-            if (sel) {
-                drawTextStyled(labelX + 1.0f, mainBaseline, mainLabel,
-                               mainScale, cbLabelColor, cbShadow, INTRAFONT_ALIGN_LEFT, false);
-            }
-        }
 
         if (lineW > 0) {
             drawHFadeLine(lineX, lineY, lineW, 1, 0xA0, 20, 0x00C0C0C0);

@@ -3045,7 +3045,6 @@
                      blNow.size() == 1 ? "" : "s");
             add(buf, gclCfg.prefix == 0);
         }
-        add("Low-Mem Mode");
         add(std::string("Category Mode: ")      + gclModeLabel(gclCfg.mode));
         add(std::string("Category Prefix: ")    + gclPrefixLabel(gclCfg.prefix));
         add(std::string("Show Uncategorized: ") + gclUncatLabel(gclCfg.uncategorized, isPspGo()));
@@ -3172,8 +3171,8 @@
 
             // Build rows (now showing the values from gclite.bin)
             buildGclSettingsRowsFromState();
-            if ((int)entries.size() > 2) {
-                selectedIndex = 2;
+            if ((int)entries.size() > 1) {
+                selectedIndex = 1;
                 scrollOffset = 0;
             }
         }
@@ -3231,19 +3230,13 @@
             return;
         }
 
-        // No master toggles here anymore – just open the pickers for 0..3
+        // No master toggles here anymore - just open the pickers for 0..4
         const bool go = isPspGo();
 
         if (idx == 0) {
             gclBlacklistDirty = false;
             openBlacklistModal(0);
         } else if (idx == 1) {
-            lowMemMode = !lowMemMode;
-            saveLowMemModeSetting();
-            buildGclSettingsRowsFromState();
-            selectedIndex = 1;
-            scrollOffset = 0;
-        } else if (idx == 2) {
             // Category mode
             MessageBox* loadingBox = pushSizedStatusModal("Loading...", "Populating...", -30);
             optMenuOwnedWarnings.clear();
@@ -3268,7 +3261,7 @@
             SceCtrlData now{}; sceCtrlReadBufferPositive(&now, 1);
             optMenu->primeButtons(now.Buttons);
             inputWaitRelease = true;
-        } else if (idx == 3) {
+        } else if (idx == 2) {
             // Category prefix
             const bool disableCatPrefix =
                 (gclCfg.mode == 2) && !computeFolderModeConstraints(gclCfg.uncategorized, 1, gclCfg.catsort).foldersAllowed;
@@ -3283,7 +3276,7 @@
             SceCtrlData now{}; sceCtrlReadBufferPositive(&now, 1);
             optMenu->primeButtons(now.Buttons);
             inputWaitRelease = true;
-        } else if (idx == 4) {
+        } else if (idx == 3) {
             // Show uncategorized
             const bool disableMsUncat = (gclCfg.mode == 2) && uncategorizedChoiceExceedsFoldersLimit(1);
             const bool disableEfUncat = (gclCfg.mode == 2) && uncategorizedChoiceExceedsFoldersLimit(2);
@@ -3304,7 +3297,7 @@
             SceCtrlData now{}; sceCtrlReadBufferPositive(&now, 1);
             optMenu->primeButtons(now.Buttons);
             inputWaitRelease = true;
-        } else if (idx == 5) {
+        } else if (idx == 4) {
             // Sort categories
             const bool disableSortYes =
                 (gclCfg.mode == 2) && !computeFolderModeConstraints(gclCfg.uncategorized, gclCfg.prefix, 1).foldersAllowed;
