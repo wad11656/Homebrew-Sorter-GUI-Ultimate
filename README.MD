@@ -47,9 +47,9 @@ Successor to [HomeBrew Sorter GUI](https://www.gamebrew.org/wiki/HomeBrew_Sorter
 - A [personally-updated build of the Game Categories Lite plugin](https://github.com/wad11656/game-categories-lite) was created and is installed from within the app when you enable the **Game Categories** setting. This upgraded plugin hides Categories (new feature) & Apps on the XMB by defining their exact folder paths (including the `ef0`/`ms0` storage device on PSP Go)--instead of only hiding apps by listing their folder names.
   - Alternatively, you can still use a different Game Categories Lite plugin that you already had pre-installed, if you prefer. Just make sure it's installed on your PSP as `category_lite.prx`, and select the **Use my own existing category_lite.prx plugin** option in the **Game Categories** menu on the app's main screen.
 
+<div>
 <img width="536" height="272" alt="Image" src="https://github.com/user-attachments/assets/9a8393b6-50af-4ae5-99d1-27b4aaab8260" />
 
-<div>
 <ins>Acknowledgements</ins>:
 - App file/folder names containing non-ASCII characters (e.g., `™`, `Æ`, `®`) cannot populate in the app. (Even though ISOs with non-ASCII characters can still successfully boot from the XMB.)
 - [CMFileManager by joel16](https://github.com/joel16/CMFileManager-PSP) was used as the base for this app to help with file operations and compiling with the modern PSP SDK.
