@@ -3242,9 +3242,11 @@ When "Category prefix" is enabled, use this blacklist to block certain folders f
             MessageBox* loadingBox = pushSizedStatusModal("Loading...", "Populating...", -30);
             optMenuOwnedWarnings.clear();
             FolderModeConstraints folderConstraints = computeFolderModeConstraints(gclCfg.uncategorized);
-            const char* foldersWarning = "8 Max.|30char Cat.+App Folder len.";
+            const char* foldersWarning = R"(Max. 8 Folders. 30-char limit for
+each Category+App folder name.)";
             if (folderConstraints.tooLongCategory) {
-                optMenuOwnedWarnings.push_back("8 Max.|30char Cat.+App Folder len.");
+                optMenuOwnedWarnings.push_back(R"(Max. 8 Folders. 30-char limit for
+each Category+App folder name.)");
                 foldersWarning = optMenuOwnedWarnings.back().c_str();
             }
             std::vector<OptionItem> items = {
