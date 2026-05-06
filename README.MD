@@ -42,7 +42,7 @@ Successor to [HomeBrew Sorter GUI](https://www.gamebrew.org/wiki/HomeBrew_Sorter
 1. Extract `Homebrew.Sorter.Ultimate.zip` from the [latest Release](https://github.com/wad11656/Homebrew-Sorter-Ultimate/releases/tag/v1.26).
 2. Copy the `/PSP/GAME/Homebrew Sorter Ultimate` folder to `[Your memory stick]:/PSP/GAME`.
 3. Launch **Homebrew Sorter Ultimate** from your PSP's XMB/home screen.
-4. If you want to sort your games into folders on your PSP's homescreen, enable the **Game Categories** plugin by selecting your CFW version under the **Game Categories:** section at the bottom of the app's main screen.
+4. If you want to sort your games into folders on your PSP's XMB/home screen, enable the **Game Categories** plugin by selecting your CFW version under the **Game Categories:** section at the bottom of **Homebrew Sorter Ultimate**'s main screen.
 5. Select your storage device to view your games.
 6. When **Game Categories** is first enabled, your games will be located in the `Uncategorized` folder by default. Enable the `Uncategorized` folder by going to `Game Categories Settings` at the top of the Categories listing screen.
 
