@@ -44,7 +44,7 @@ Successor to [HomeBrew Sorter GUI](https://www.gamebrew.org/wiki/HomeBrew_Sorter
 3. If you want to sort your games into folders on your PSP's homescreen, enable the **Game Categories** plugin by selecting your CFW version under the **Game Categories:** sectionn on the app's main screen.
 4. Select your storage device to view your games.
 5. When **Game Categories** is first enabled, your games will be located in the `Uncategorized` folder by default. Enable the `Uncategorized` folder by going to `Game Categories Settings` at the top of the Categories listing screen.
-- Comprehensive video guide coming soon...
+*Comprehensive video guide coming soon...*
 
 <ins>Known Limitations</ins>:
 - On PSP Go, you must run the app from Memory Stick to access Memory Stick storage.
