@@ -35,7 +35,7 @@ Successor to [HomeBrew Sorter GUI](https://www.gamebrew.org/wiki/HomeBrew_Sorter
 
 ---
 
-<ins>Installation</ins>:
+#### <ins>Installation</ins>:
 
 0. Make sure you have a CFW installed on your PSP to run Homebrew apps like this one. [ARK-4](https://github.com/PSP-Archive/ARK-4) is the most modern PSP CFW.
     - This also works on Vita's Adrenaline PSP emulator (both [vanilla Adrenaline](https://github.com/isage/Adrenaline) and [ARK-4 Adrenaline](https://github.com/PSP-Archive/ARK-4#adrenaline-patched-pspemu)).
@@ -49,14 +49,14 @@ Successor to [HomeBrew Sorter GUI](https://www.gamebrew.org/wiki/HomeBrew_Sorter
 
 *Comprehensive video guide coming soon...*
 
-<ins>Known Limitations</ins>:
+#### <ins>Known Limitations</ins>:
 - On PSP Go, you must run the app from Memory Stick to access Memory Stick storage.
 - App file/folder names containing non-ASCII characters (e.g., `™`, `Æ`, `®`) cannot populate in the app. (Even though ISOs with non-ASCII characters in the filename can still successfully boot from the XMB.)
 - On Adrenaline, in-app USB Mode is not supported.
 - On vanilla (non-ARK) Adrenaline, the Game Categories plugin may require enabling the "Category prefix" plugin System Setting for it to start working.
 - On vanilla (non-ARK) Adrenaline and LME CFW, the Game Categories plugin does not merge Category folders that share the same name across `/ISO` and `/PSP/GAME`.
 
-<ins>Additional Info</ins>:
+#### <ins>Additional Info</ins>:
 - You can disable the main screen's animations by removing the `/resources/animations` folder. (If you want different anitmations, you can add your own animation folders with animation `.png` frames named with the same frame-duration syntax as in the existing folders.)
 - You can change the app background by swapping out `/resources/bkg.png`.
 - A [personally-updated build of the Game Categories Lite plugin](https://github.com/wad11656/game-categories-lite) was created and is installed from within the app when you enable the **Game Categories** setting. This upgraded plugin hides Categories (new feature) & Apps on the XMB by defining their exact folder paths (including the `ef0`/`ms0` storage device on PSP Go)--instead of only hiding apps by listing their folder names.
@@ -65,7 +65,7 @@ Successor to [HomeBrew Sorter GUI](https://www.gamebrew.org/wiki/HomeBrew_Sorter
 <div>
 <img width="536" height="272" alt="Image" src="https://github.com/user-attachments/assets/9a8393b6-50af-4ae5-99d1-27b4aaab8260" />
 
-<ins>Acknowledgements</ins>:
+#### <ins>Acknowledgements</ins>:
 - [CMFileManager by joel16](https://github.com/joel16/CMFileManager-PSP) was used as the base for this app to help with file operations and compiling with the modern PSP SDK.
 - Thank you [kathyrollo](https://github.com/kathyrollo) for the kind promo and thorough QA.
 
