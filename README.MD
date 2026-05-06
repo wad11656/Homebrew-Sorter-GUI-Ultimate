@@ -38,7 +38,7 @@ Successor to [HomeBrew Sorter GUI](https://www.gamebrew.org/wiki/HomeBrew_Sorter
 <ins>Installation</ins>:
 
 0. Make sure you have a CFW installed on your PSP to run Homebrew apps like this one. [ARK-4](https://github.com/PSP-Archive/ARK-4) is the most modern PSP CFW.
-  - This also works on Vita's Adrenaline PSP emulator (both Vanilla Adrenaline and ARK-4 Adrenaline).
+    - This also works on Vita's Adrenaline PSP emulator (both Vanilla Adrenaline and ARK-4 Adrenaline).
 1. Extract `Homebrew.Sorter.Ultimate.zip` from the [latest Release](https://github.com/wad11656/Homebrew-Sorter-Ultimate/releases/tag/v1.26), and copy the `/PSP/GAME/Homebrew Sorter Ultimate` folder to `[Your memory stick]:/PSP/GAME`.
 2. Launch **Homebrew Sorter Ultimate** from your PSP's XMB/home screen.
 3. If you want to sort your games into folders on your PSP's homescreen, enable the **Game Categories** plugin by selecting your CFW version under the **Game Categories:** sectionn on the app's main screen.
